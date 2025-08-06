@@ -29,7 +29,7 @@ const razorpay = new Razorpay({
 
 // Middleware
 app.use(cors({
-  origin: "https://volunteerdashboard-production.up.railway.app/",
+  origin: "https://volunteerdashboard-production.up.railway.app",
   methods: "GET,POST,PUT,DELETE",
   credentials: true
 }));
