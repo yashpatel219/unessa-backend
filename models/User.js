@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema({
   },
   quizPassed: { type: Boolean, default: false },
   offerLetterPath: { type: String, default: null },
+  pdf: Buffer,
   generatedAt: { type: Date, default: Date.now },
   quizStatus: {
     type: String,
