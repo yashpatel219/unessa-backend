@@ -23,7 +23,11 @@ export const generateAndSendOffer = async (req, res) => {
     let html = fs.readFileSync(templatePath, "utf8");
     html = html.replace(/{{name}}/g, name).replace(/{{date}}/g, date);
 
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+  headless: true,
+  args: ['--no-sandbox', '--disable-setuid-sandbox'],
+});
+
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
 
