@@ -35,8 +35,15 @@ export const generateAndSendOffer = async (req, res) => {
 const arrayBuffer = await pdfResponse.arrayBuffer();
 const buffer = Buffer.from(arrayBuffer);
 
-    const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
-    fs.writeFileSync(pdfPath, buffer);
+    await Offer.create({
+      userId,
+      name,
+      email,
+      pdf: pdfBuffer
+    });
+
+    // const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
+    // fs.writeFileSync(pdfPath, buffer);
 
     // Send email
     const transporter = nodemailer.createTransport({
