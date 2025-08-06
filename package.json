@@ -17,7 +17,7 @@
     "mongodb": "^6.18.0",
     "mongoose": "^8.16.4",
     "nodemailer": "^7.0.5",
-    "puppeteer": "^21.3.8",
+     "html-pdf-node": "^1.0.0-alpha.17",
     "razorpay": "^2.9.6",
 
   }
