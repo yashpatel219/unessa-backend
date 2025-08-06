@@ -1,9 +1,11 @@
-import fs from "fs";
+// controllers/generateAndSendOffer.js
+
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
 import User from "../models/User.js";
-import pdf from "html-pdf-node";
+import puppeteer from "puppeteer";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -17,17 +19,26 @@ export const generateAndSendOffer = async (req, res) => {
       year: "numeric",
     });
 
+    // Load the HTML offer letter template
     const templatePath = path.join(__dirname, "../templates/offer.html");
     let html = fs.readFileSync(templatePath, "utf8");
     html = html.replace(/{{name}}/g, name).replace(/{{date}}/g, date);
 
+    // Generate PDF using puppeteer
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "networkidle0" });
+
     const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
-    const file = { content: html };
-    const options = { format: "A4" };
+    await page.pdf({ path: pdfPath, format: "A4" });
 
-    const pdfBuffer = await pdf.generatePdf(file, options);
-    fs.writeFileSync(pdfPath, pdfBuffer);
+    await browser.close();
 
+    // Send email with PDF attachment
     const transporter = nodemailer.createTransport({
       service: "Gmail",
       auth: {
@@ -41,9 +52,15 @@ export const generateAndSendOffer = async (req, res) => {
       to: email,
       subject: "🎉 Your Offer Letter from Unessa Foundation",
       text: `Congratulations ${name}!\n\nPlease find your offer letter attached.\n\nRegards,\nUnessa Foundation`,
-      attachments: [{ filename: "OfferLetter.pdf", path: pdfPath }],
+      attachments: [
+        {
+          filename: "OfferLetter.pdf",
+          path: pdfPath,
+        },
+      ],
     });
 
+    // Update user document in DB
     await User.findByIdAndUpdate(
       userId,
       {
