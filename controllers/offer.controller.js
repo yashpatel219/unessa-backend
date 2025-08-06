@@ -14,24 +14,15 @@ export const generateAndSendOffer = async (req, res) => {
       month: "long",
       year: "numeric",
     });
-    // Load the template
     const templatePath = path.join(__dirname, "../templates/offer.html");
-    // const content = fs.readFileSync(templatePath, "binary");
+  
     let html = fs.readFileSync(templatePath, "utf8");
     html = html.replace(/{{name}}/g, name).replace(/{{date}}/g, date);
-    // const browser = await chromium.launch({
-    //   args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    //   headless: true,
-    // });
+    
     const options = { format: "A4" };
     const file = { content: html };
     const pdfBuffer = await html_to_pdf.generatePdf(file, options);
-    // const page = await browser.newPage();
-    // await page.setContent(html, { waitUntil: "networkidle0" });
-    // const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
-    // await page.pdf({ path: pdfPath, format: "A4" });
-    // await browser.close();
-    // Send email with attachment
+    
     const transporter = nodemailer.createTransport({
       service: "Gmail",
       auth: {
@@ -51,7 +42,6 @@ export const generateAndSendOffer = async (req, res) => {
         },
       ],
     });
-    // Update user in database
     await User.findByIdAndUpdate(userId,{
       quizPassed: true,
       generatedAt: new Date(),
