@@ -1,11 +1,9 @@
-// controllers/generateAndSendOffer.js
-
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
+import fetch from "node-fetch";
 import User from "../models/User.js";
-import puppeteer from "puppeteer";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -19,26 +17,27 @@ export const generateAndSendOffer = async (req, res) => {
       year: "numeric",
     });
 
-    // Load the HTML offer letter template
+    // Load HTML template and replace placeholders
     const templatePath = path.join(__dirname, "../templates/offer.html");
     let html = fs.readFileSync(templatePath, "utf8");
     html = html.replace(/{{name}}/g, name).replace(/{{date}}/g, date);
 
-    // Generate PDF using puppeteer
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    // Use external API to generate PDF
+    const pdfResponse = await fetch("https://api.html2pdf.app/v1/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        html,
+        apiKey: "demo" // Replace with your free API key from https://html2pdf.app
+      })
     });
 
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
+    const buffer = await pdfResponse.buffer();
 
     const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
-    await page.pdf({ path: pdfPath, format: "A4" });
+    fs.writeFileSync(pdfPath, buffer);
 
-    await browser.close();
-
-    // Send email with PDF attachment
+    // Send email
     const transporter = nodemailer.createTransport({
       service: "Gmail",
       auth: {
@@ -60,7 +59,6 @@ export const generateAndSendOffer = async (req, res) => {
       ],
     });
 
-    // Update user document in DB
     await User.findByIdAndUpdate(
       userId,
       {
