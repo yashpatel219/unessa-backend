@@ -4,51 +4,45 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
-
-
+import bodyParser from 'body-parser';
 
 import userRoutes from './routes/userRoutes.js';
 import webhookRoutes from './routes/webhook.js';
 import paymentRoutes from './routes/paymentRoutes.js';
-
-import Payment from './models/Payment.js';
-import User from './models/User.js'; // ✅ Required to update amount
-
 import offerRoutes from './routes/offer.route.js';
 
+import Payment from './models/Payment.js';
+import User from './models/User.js';
 
 dotenv.config();
 
 const app = express();
 
-// Razorpay instance
+// ✅ Razorpay instance
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// Middleware
+// ✅ Middleware
 app.use(cors({
   origin: "https://volunteerdashboard-production.up.railway.app",
   methods: "GET,POST,PUT,DELETE",
   credentials: true
 }));
-app.use((req, res, next) => {
-  if (req.originalUrl === "/api/webhook") {
-    next(); // Skip body parser for webhook
-  } else {
-    express.json()(req, res, next);
-  }
-});
 
-// Routes
+app.use(express.json());
+app.use(express.static("public"));
+app.use("/public", express.static("public"));
+
+// ✅ Webhook route raw body parser
+app.use('/api/webhook', bodyParser.raw({ type: 'application/json' }));
+
+// ✅ Routes
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api', paymentRoutes);
 app.use('/offer', offerRoutes);
-app.use(express.static("public")); 
-app.use("/public", express.static("public"));
-
 
 // ✅ Create Razorpay Order
 app.post("/create-order", async (req, res) => {
@@ -148,11 +142,19 @@ app.post('/save-payment', async (req, res) => {
   }
 });
 
-// DB connection
+// ✅ DB Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB Connected'))
   .catch(err => console.error('❌ MongoDB Error:', err));
 
-// Start server
+// ✅ Global Error Handler
+app.use((err, req, res, next) => {
+  console.error("🔥 Global Error Handler:", err.stack);
+  res.status(500).json({ error: "Something went wrong" });
+});
+
+// ✅ Start Server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log("🚀 Server running at https://unessa-backend.onrender.com/"));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running at https://unessa-backend.onrender.com/`);
+});
