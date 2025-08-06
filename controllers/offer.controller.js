@@ -28,7 +28,7 @@ export const generateAndSendOffer = async (req, res) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         html,
-        apiKey: 9bWLC9jTNMAG0aJcTXbGnDr5HSxqSpxjDfH2LbWhyJGAEcC08yPyygF3YSdjpQLF // Replace with your free API key from https://html2pdf.app
+        apiKey: "9bWLC9jTNMAG0aJcTXbGnDr5HSxqSpxjDfH2LbWhyJGAEcC08yPyygF3YSdjpQLF" // Replace with your free API key from https://html2pdf.app
       })
     });
 
