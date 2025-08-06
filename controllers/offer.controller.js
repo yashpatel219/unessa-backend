@@ -3,8 +3,8 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
 import User from "../models/User.js";
-// import puppeteer from "puppeteer";
-import { chromium } from "playwright";
+
+import html_to_pdf from "html-pdf-node";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const generateAndSendOffer = async (req, res) => {
   try {
@@ -19,15 +19,18 @@ export const generateAndSendOffer = async (req, res) => {
     // const content = fs.readFileSync(templatePath, "binary");
     let html = fs.readFileSync(templatePath, "utf8");
     html = html.replace(/{{name}}/g, name).replace(/{{date}}/g, date);
-    const browser = await chromium.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      headless: true,
-    });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
-    const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
-    await page.pdf({ path: pdfPath, format: "A4" });
-    await browser.close();
+    // const browser = await chromium.launch({
+    //   args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    //   headless: true,
+    // });
+    const options = { format: "A4" };
+    const file = { content: html };
+    const pdfBuffer = await html_to_pdf.generatePdf(file, options);
+    // const page = await browser.newPage();
+    // await page.setContent(html, { waitUntil: "networkidle0" });
+    // const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
+    // await page.pdf({ path: pdfPath, format: "A4" });
+    // await browser.close();
     // Send email with attachment
     const transporter = nodemailer.createTransport({
       service: "Gmail",
@@ -62,12 +65,3 @@ export const generateAndSendOffer = async (req, res) => {
     res.status(500).json({ message: "Failed to send offer letter." });
   }
 };
-
-
-
-
-
-
-
-
-
