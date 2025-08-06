@@ -32,7 +32,8 @@ export const generateAndSendOffer = async (req, res) => {
       })
     });
 
-    const buffer = await pdfResponse.buffer();
+const arrayBuffer = await pdfResponse.arrayBuffer();
+const buffer = Buffer.from(arrayBuffer);
 
     const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
     fs.writeFileSync(pdfPath, buffer);
