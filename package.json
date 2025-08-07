@@ -23,8 +23,5 @@
     "node-fetch": "^3.3.2"
 
 
-  },
-     "resolutions": {
-    "path-to-regexp": "6.2.1"
   }
 }
