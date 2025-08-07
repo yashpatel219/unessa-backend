@@ -32,12 +32,20 @@ export const generateAndSendOffer = async (req, res) => {
       })
     });
 
+    
+    // Validate response
+    if (!pdfResponse.ok) {
+      const errorText = await pdfResponse.text();
+      console.error("PDF generation failed:", pdfResponse.status, errorText);
+      return res.status(500).json({ message: "PDF generation failed" });
+    }
+
 const arrayBuffer = await pdfResponse.arrayBuffer();
 const buffer = Buffer.from(arrayBuffer);
 
 
-    const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
-    fs.writeFileSync(pdfPath, buffer);
+    // const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
+    // fs.writeFileSync(pdfPath, buffer);
 
     // Send email
     const transporter = nodemailer.createTransport({
@@ -67,7 +75,7 @@ const buffer = Buffer.from(arrayBuffer);
         quizPassed: true,
         generatedAt: new Date(),
           pdf: buffer,
-        offerLetterPath: `/offer-${userId}.pdf`,
+        offerLetterPath: null,
       },
       { new: true }
     );
