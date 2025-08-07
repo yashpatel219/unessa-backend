@@ -25,12 +25,21 @@ const razorpay = new Razorpay({
 });
 
 // ✅ Middleware
+// ✅ CORS configuration
+const allowedOrigins = [
+  "https://volunteerdashboard-production.up.railway.app"
+];
+
 app.use(cors({
-  origin: "https://volunteerdashboard-production.up.railway.app",
-  methods: "GET,POST,PUT,DELETE",
+  origin: allowedOrigins,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
 
+// ✅ Preflight requests handler
+app.options("*", cors());
+
+// ✅ Body parsers
 app.use(express.json());
 app.use(express.static("public"));
 app.use("/public", express.static("public"));
