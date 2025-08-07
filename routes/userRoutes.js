@@ -67,7 +67,7 @@ router.post("/check", async (req, res) => {
 });
 
 
-router.get('/:email', async (req, res) => {
+router.get('details/:email', async (req, res) => {
   try {
     const user = await User.findOne({ email: req.params.email });
     if (!user) return res.status(404).json({ message: 'User not found' });
