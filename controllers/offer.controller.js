@@ -35,15 +35,9 @@ export const generateAndSendOffer = async (req, res) => {
 const arrayBuffer = await pdfResponse.arrayBuffer();
 const buffer = Buffer.from(arrayBuffer);
 
-    await Offer.create({
-      userId,
-      name,
-      email,
-      pdf: pdfBuffer
-    });
 
-    // const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
-    // fs.writeFileSync(pdfPath, buffer);
+    const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
+    fs.writeFileSync(pdfPath, buffer);
 
     // Send email
     const transporter = nodemailer.createTransport({
@@ -72,6 +66,7 @@ const buffer = Buffer.from(arrayBuffer);
       {
         quizPassed: true,
         generatedAt: new Date(),
+          pdf: buffer,
         offerLetterPath: `/offer-${userId}.pdf`,
       },
       { new: true }
