@@ -4,7 +4,7 @@ import crypto from 'crypto';
 const router = express.Router();
 const WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-router.post('/', express.raw({ type: 'application/json' }), (req, res) => {
+router.post('/', (req, res) => {
   const signature = req.headers['x-razorpay-signature'];
   const rawBody = req.body;
 
