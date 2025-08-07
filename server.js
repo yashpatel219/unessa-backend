@@ -13,6 +13,8 @@ import offerRoutes from './routes/offer.route.js';
 
 import Payment from './models/Payment.js';
 import User from './models/User.js';
+import { pathToRegexp } from 'path-to-regexp';
+console.log('ℹ️ path-to-regexp version:', pathToRegexp.toString());
 
 dotenv.config();
 
