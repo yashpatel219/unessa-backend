@@ -9,14 +9,12 @@
   "engines": {
     "node": "20.x"
   },
-   "resolutions": {
-    "path-to-regexp": "6.2.1"
-  }
+
   "dependencies": {
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dotenv": "^17.2.0",
-    "express": "^5.1.0",
+    "express": "5.1.0", 
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.18.0",
     "mongoose": "^8.16.4",
@@ -25,5 +23,8 @@
     "node-fetch": "^3.3.2"
 
 
+  },
+     "resolutions": {
+    "path-to-regexp": "6.2.1"
   }
 }
