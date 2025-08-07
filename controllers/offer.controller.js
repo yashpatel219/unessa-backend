@@ -69,7 +69,7 @@ export const generateAndSendOffer = async (req, res) => {
 
     await transporter.sendMail({
       from: process.env.MAIL_USER,
-      to: email,
+      to: findEmail,
       subject: "🎉 Your Offer Letter from Unessa Foundation",
       text: `Congratulations ${name}!\n\nPlease find your offer letter attached.\n\nRegards,\nUnessa Foundation`,
       attachments: [
