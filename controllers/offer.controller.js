@@ -80,3 +80,23 @@ export const generateAndSendOffer = async (req, res) => {
     res.status(500).json({ message: "Failed to send offer letter." });
   }
 };
+
+export const getOfferLetter = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+
+    if (!user || !user.pdf) {
+      return res.status(404).json({ message: "Offer letter not found" });
+    }
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": "inline; filename=OfferLetter.pdf",
+    });
+
+    res.send(user.pdf);
+  } catch (error) {
+    console.error("Error fetching offer letter:", error);
+    res.status(500).json({ message: "Failed to retrieve offer letter" });
+  }
+};
