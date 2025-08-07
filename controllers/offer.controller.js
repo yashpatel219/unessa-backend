@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
-import fetch from "node-fetch";
+import axios from "axios";
 import User from "../models/User.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,26 +22,20 @@ export const generateAndSendOffer = async (req, res) => {
     let html = fs.readFileSync(templatePath, "utf8");
     html = html.replace(/{{name}}/g, name).replace(/{{date}}/g, date);
 
-    // Use external API to generate PDF
-    const pdfResponse = await fetch("https://api.html2pdf.app/v1/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+   const pdfResponse = await axios.post(
+      "https://api.html2pdf.app/v1/generate",
+      {
         html,
-        apiKey: "9bWLC9jTNMAG0aJcTXbGnDr5HSxqSpxjDfH2LbWhyJGAEcC08yPyygF3YSdjpQLF" // Replace with your free API key from https://html2pdf.app
-      })
-    });
+        apiKey: "9bWLC9jTNMAG0aJcTXbGnDr5HSxqSpxjDfH2LbWhyJGAEcC08yPyygF3YSdjpQLF",
+      },
+      {
+        responseType: "arraybuffer",
+      }
+    );
 
-    
-    // Validate response
-    if (!pdfResponse.ok) {
-      const errorText = await pdfResponse.text();
-      console.error("PDF generation failed:", pdfResponse.status, errorText);
-      return res.status(500).json({ message: "PDF generation failed" });
-    }
+    const buffer = Buffer.from(pdfResponse.data); 
 
-const arrayBuffer = await pdfResponse.arrayBuffer();
-const buffer = Buffer.from(arrayBuffer);
+  
 
 
     // const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
@@ -64,7 +58,7 @@ const buffer = Buffer.from(arrayBuffer);
       attachments: [
         {
           filename: "OfferLetter.pdf",
-          path: pdfBuffer,
+          content: buffer,
         },
       ],
     });
