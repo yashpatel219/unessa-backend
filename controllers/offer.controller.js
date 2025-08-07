@@ -11,6 +11,23 @@ export const generateAndSendOffer = async (req, res) => {
   try {
     const { userId, email, name } = req.body;
 
+     if (!userId || !name) {
+      return res.status(400).json({ message: "Missing required fields: userId or name" });
+    }
+
+    // Fetch user from DB (to get email if not passed)
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const finalEmail = email || user.email;
+
+    if (!finalEmail || !/\S+@\S+\.\S+/.test(finalEmail)) {
+      return res.status(400).json({ message: "Invalid or missing email address" });
+    }
+
+
     const date = new Date().toLocaleDateString("en-IN", {
       day: "numeric",
       month: "long",
