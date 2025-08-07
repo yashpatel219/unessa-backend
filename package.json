@@ -9,6 +9,9 @@
   "engines": {
     "node": "20.x"
   },
+   "resolutions": {
+    "path-to-regexp": "6.2.1"
+  }
   "dependencies": {
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
