@@ -64,7 +64,7 @@ const buffer = Buffer.from(arrayBuffer);
       attachments: [
         {
           filename: "OfferLetter.pdf",
-          path: buffer,
+          path: pdfBuffer,
         },
       ],
     });
