@@ -4,7 +4,7 @@ import User from "../models/User.js";
 const router = express.Router();
 
 router.post("/generate-offer", generateAndSendOffer);
-
+router.get("/offer-letter/:userId", getOfferLetter);
 
 
 
