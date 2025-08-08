@@ -9,29 +9,26 @@ const router = express.Router();
 
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, number, avatar } = req.body;
-
-    // Generate unique username using name + random 4 digits
-    const baseUsername = name.toLowerCase().replace(/\s+/g, '');
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const username = `${baseUsername}${randomSuffix}`;
-
-    const newUser = new User({ name, email, number, avatar, username });
+    const { name, email, number, avatar, username } = req.body;
+    // :white_check_mark: Use provided username, else generate a new one
+    let finalUsername = username;
+    if (!finalUsername) {
+      const baseUsername = name.toLowerCase().replace(/\s+/g, '');
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      finalUsername = `${baseUsername}${randomSuffix}`;
+    }
+    const newUser = new User({ name, email, number, avatar, username: finalUsername });
     await newUser.save();
-
     console.log("User saved with username:", newUser.username);
-
-    // ✅ Create JWT token
     const token = jwt.sign(
       { id: newUser._id, email: newUser.email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-
     res.status(201).json({
       message: 'User saved successfully',
       username: newUser.username,
-      token // 👈 Send token to frontend
+      token
     });
   } catch (err) {
     console.error("Error saving user:", err);
