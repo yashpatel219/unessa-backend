@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema({
     enum: ["notAttempted", "passed", "failed"],
     default: "notAttempted",
   },
-  hasSeenTour: { type: Boolean, default: true }
+  hasSeenTour: { type: Boolean, default: false }
 
 });
 
