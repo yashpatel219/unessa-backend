@@ -7,7 +7,6 @@ import PDFDocument from "pdfkit";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-
 export const generateAndSendOffer = async (req, res) => {
   try {
     const { userId, email, name } = req.body;
@@ -28,20 +27,24 @@ export const generateAndSendOffer = async (req, res) => {
     doc.fontSize(25).text(`Offer Letter for ${name}`, {
       align: "center",
     });
-
     doc.moveDown();
-
     doc.fontSize(16).text(`Date: ${date}`);
-
     doc.moveDown();
-
-    // Add a signature and other offer letter content here
     doc.fontSize(12).text("Dear " + name + ",", { align: "left" });
     doc.text("We are pleased to offer you the position of a Software Engineer at Unessa Foundation. Your passion and skills are a perfect fit for our team. We look forward to having you on board.");
     
     // Finalize the PDF and end the stream
     doc.end();
-    // Send email with attachment
+
+    // 1. Read the HTML template file
+    const templatePath = path.join(__dirname, "../templates/offer.html");
+    let htmlContent = fs.readFileSync(templatePath, "utf-8");
+
+    // 2. Replace placeholders in the HTML with dynamic data
+    htmlContent = htmlContent.replace("{{name}}", name);
+    htmlContent = htmlContent.replace("{{date}}", date);
+
+    // 3. Create a Nodemailer transporter
     const transporter = nodemailer.createTransport({
       service: "Gmail",
       auth: {
@@ -50,11 +53,12 @@ export const generateAndSendOffer = async (req, res) => {
       },
     });
 
+    // 4. Send email with the HTML content and attachment
     await transporter.sendMail({
       from: process.env.MAIL_USER,
       to: email,
       subject: "🎉 Your Offer Letter from Unessa Foundation",
-      text: `Congratulations ${name}!\n\nPlease find your offer letter attached.\n\nRegards,\nUnessa Foundation`,
+      html: htmlContent, // Use the processed HTML content
       attachments: [
         {
           filename: "OfferLetter.pdf",
@@ -63,15 +67,12 @@ export const generateAndSendOffer = async (req, res) => {
       ],
     });
 
-    // Update user in database
-    await User.findByIdAndUpdate(userId,{
+    // 5. Update user in the database
+    await User.findByIdAndUpdate(userId, {
       quizPassed: true,
       generatedAt: new Date(),
       offerLetterPath: `/offer-${userId}.pdf`,
-      
-    },
-    { new: true }
-  );
+    }, { new: true });
 
     res.status(200).json({ message: "Offer letter sent and saved." });
   } catch (error) {
