@@ -1,3 +1,4 @@
+// server.js (updated)
 import express from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
@@ -5,6 +6,8 @@ import cors from 'cors';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import bodyParser from 'body-parser';
+import http from 'http';
+import { Server as IOServer } from 'socket.io';
 
 import userRoutes from './routes/userRoutes.js';
 import webhookRoutes from './routes/webhook.js';
@@ -13,7 +16,6 @@ import offerRoutes from './routes/offer.route.js';
 
 import Payment from './models/Payment.js';
 import User from './models/User.js';
-
 
 dotenv.config();
 
@@ -25,34 +27,59 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// ✅ Middleware
-// ✅ CORS configuration
+// ✅ CORS configuration (add frontend origins)
 const allowedOrigins = [
-  "https://volunteerdashboard-production.up.railway.app"
+  "https://volunteerdashboard-production.up.railway.app",
+  "http://localhost:5173",
+  "http://localhost:3000", // optional dev port if used
 ];
 
+// Express CORS
 app.use(cors({
   origin: allowedOrigins,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
 
-// ✅ Preflight requests handler
+// Preflight
 app.options("*", cors());
 
-// ✅ Body parsers
+// Body parsers
 app.use(express.json());
 app.use(express.static("public"));
 app.use("/public", express.static("public"));
 
-// ✅ Webhook route raw body parser
+// Webhook must use raw parser
 app.use('/api/webhook', bodyParser.raw({ type: 'application/json' }));
 
-// ✅ Routes
+// Routes (keep these)
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api', paymentRoutes);
 app.use('/offer', offerRoutes);
+
+// Create HTTP server and attach Socket.IO
+const server = http.createServer(app);
+
+const io = new IOServer(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// Socket.IO connection logging
+io.on('connection', (socket) => {
+  console.log(`🟢 Socket connected: ${socket.id}`);
+
+  socket.on('disconnect', (reason) => {
+    console.log(`🔴 Socket disconnected: ${socket.id} — reason: ${reason}`);
+  });
+});
+
+// Expose io if other modules need it (optional)
+// export { io }; // uncomment if you want to import io in other route files
 
 // ✅ Create Razorpay Order
 app.post("/create-order", async (req, res) => {
@@ -106,7 +133,7 @@ app.post('/verify-payment', (req, res) => {
   }
 });
 
-// ✅ Save Payment & Update User Amount
+// ✅ Save Payment & Update User Amount — now emits socket event
 app.post('/save-payment', async (req, res) => {
   try {
     const {
@@ -128,10 +155,12 @@ app.post('/save-payment', async (req, res) => {
     });
 
     await payment.save();
+    console.log('✅ Payment saved:', payment._id?.toString() || payment);
 
     // 2. Update user's amount based on refName (username)
+    let updatedUser = null;
     if (refName) {
-      const updatedUser = await User.findOneAndUpdate(
+      updatedUser = await User.findOneAndUpdate(
         { username: refName },
         { $inc: { amount: amount } },
         { new: true }
@@ -143,6 +172,11 @@ app.post('/save-payment', async (req, res) => {
         console.log(`✅ Updated ${refName}'s amount:`, updatedUser.amount);
       }
     }
+
+    // 3. Emit socket event to notify clients in real-time
+    // Payload can include refName and amount; clients can decide to refresh or filter
+    io.emit('paymentSuccess', { refName: refName || null, amount });
+    console.log(`🔔 Emitted paymentSuccess event (refName=${refName}, amount=${amount})`);
 
     res.status(201).json({ success: true, message: "Payment saved successfully!" });
 
@@ -163,8 +197,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Something went wrong" });
 });
 
-// ✅ Start Server
+// ✅ Start HTTP server (used by socket.io)
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running at https://unessa-backend.onrender.com/`);
+server.listen(PORT, () => {
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
