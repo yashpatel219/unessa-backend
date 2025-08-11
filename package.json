@@ -24,7 +24,7 @@
     "mongoose": "^8.16.4",
     "nodemailer": "^7.0.5",
      "@playwright/browser-chromium": "^1.44.1",
-    "playwright-core": "^1.44.1"
+    "playwright-core": "^1.44.1",
     "razorpay": "^2.9.6"
 
 
