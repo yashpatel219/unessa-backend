@@ -1,15 +1,22 @@
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-import nodemailer from "nodemailer";
-import User from "../models/User.js";
-import { jsPDF } from "jspdf";
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import nodemailer from 'nodemailer';
+import PDFDocument from 'pdfkit';
+import User from '../models/User.js'; // Adjust path as needed
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const generateAndSendOffer = async (req, res) => {
+  let pdfPath;
+  
   try {
     const { userId, email, name } = req.body;
+
+    // Validate required fields
+    if (!userId || !email || !name) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
 
     const date = new Date().toLocaleDateString("en-IN", {
       day: "numeric",
@@ -17,71 +24,124 @@ export const generateAndSendOffer = async (req, res) => {
       year: "numeric",
     });
 
-    // Create a new PDF document
-    const doc = new jsPDF();
+    // 1. Generate PDF
+    pdfPath = path.join(__dirname, `../public/offers/offer-${userId}.pdf`);
+    
+    // Ensure the offers directory exists
+    const dir = path.join(__dirname, '../public/offers');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
 
-    // Set font and add content
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text(`Offer Letter for ${name}`, 105, 20, { align: "center" });
+    // Create PDF document
+    const doc = new PDFDocument();
+    const stream = fs.createWriteStream(pdfPath);
+    doc.pipe(stream);
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
-    doc.text(`Date: ${date}`, 105, 35, { align: "center" });
+    // Add content to PDF
+    doc.font('Helvetica-Bold')
+       .fontSize(20)
+       .text('OFFER LETTER', { align: 'center' });
+    
+    doc.moveDown();
+    doc.font('Helvetica')
+       .fontSize(12)
+       .text(`Date: ${date}`, { align: 'right' });
+    
+    doc.moveDown(2);
+    doc.fontSize(14)
+       .text(`Dear ${name},`, { align: 'left' });
+    
+    doc.moveDown();
+    doc.fontSize(12)
+       .text('We are pleased to offer you the position of Software Engineer at our company.', {
+         align: 'left',
+         lineGap: 5
+       });
+    
+    doc.moveDown();
+    doc.text('This offer is contingent upon satisfactory completion of all pre-employment requirements.', {
+      lineGap: 5
+    });
+    
+    // Add signature line
+    doc.moveDown(3);
+    doc.text('Sincerely,', { continued: true })
+       .text('\n\n_________________________\nHR Manager\nCompany Name', {
+         lineGap: 5
+       });
 
-    doc.text(`Dear ${name},`, 20, 50);
-    doc.text(
-      "We are pleased to offer you the position of a Software Engineer at Unessa Foundation. " +
-      "Your passion and skills are a perfect fit for our team. " +
-      "We look forward to having you on board.",
-      20, 60, { maxWidth: 170 }
-    );
+    // Finalize PDF
+    doc.end();
 
-    // Save the PDF to a file
-    const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
-    const pdfBuffer = doc.output("arraybuffer");
-    fs.writeFileSync(pdfPath, Buffer.from(pdfBuffer));
+    // Wait for PDF generation to complete
+    await new Promise((resolve, reject) => {
+      stream.on('finish', resolve);
+      stream.on('error', reject);
+    });
 
-    // Read and process email template
-    const templatePath = path.join(__dirname, "../templates/offer.html");
-    let htmlContent = fs.readFileSync(templatePath, "utf-8");
-    htmlContent = htmlContent.replace("{{name}}", name);
-    htmlContent = htmlContent.replace("{{date}}", date);
+    // 2. Prepare email content
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2c3e50;">Congratulations, ${name}!</h2>
+        <p>Please find your offer letter attached.</p>
+        <p>If you have any questions, please don't hesitate to contact us.</p>
+        <p>Best regards,<br>The Hiring Team</p>
+      </div>
+    `;
 
-    // Configure email transporter
+    // 3. Send email with attachment
     const transporter = nodemailer.createTransport({
-      service: "Gmail",
+      service: 'Gmail',
       auth: {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,
       },
     });
 
-    // Send email with attachment
     await transporter.sendMail({
-      from: process.env.MAIL_USER,
+      from: `"HR Team" <${process.env.MAIL_USER}>`,
       to: email,
-      subject: "🎉 Your Offer Letter from Unessa Foundation",
+      subject: `Your Offer Letter - ${name}`,
       html: htmlContent,
       attachments: [
         {
-          filename: "OfferLetter.pdf",
+          filename: `Offer_Letter_${name.replace(/\s+/g, '_')}.pdf`,
           path: pdfPath,
-          contentType: "application/pdf",
-        },
-      ],
+          contentType: 'application/pdf'
+        }
+      ]
     });
 
-    // Update user in database
-    await User.findByIdAndUpdate(userId, {
-      quizPassed: true,
-      generatedAt: new Date(),
-      offerLetterPath: `/offer-${userId}.pdf`,
-    }, { new: true });
+    // 4. Update user record
+    await User.findByIdAndUpdate(
+      userId,
+      {
+        offerLetterSent: true,
+        offerLetterPath: `/offers/offer-${userId}.pdf`,
+        offerSentDate: new Date()
+      },
+      { new: true }
+    );
 
-    res.status(200).json({ message: "Offer letter sent and saved." });
+    // 5. Send success response
+    res.status(200).json({
+      success: true,
+      message: 'Offer letter generated and sent successfully'
+    });
+
   } catch (error) {
-    console.error("Offer generation error:", error);
-    res.status(500).json({ message: "Failed to send offer letter." });
+    console.error('Error in generateAndSendOffer:', error);
+    
+    // Clean up failed PDF file if it exists
+    if (pdfPath && fs.existsSync(pdfPath)) {
+      fs.unlinkSync(pdfPath);
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate and send offer letter',
+      error: error.message
+    });
   }
 };
