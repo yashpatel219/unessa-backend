@@ -23,28 +23,49 @@ export const generateAndSendOffer = async (req, res) => {
     // Pipe the PDF content to a writeable file stream
     doc.pipe(fs.createWriteStream(pdfPath));
 
+    // --- Start of PDF content generation ---
     // Add content to the PDF using PDFKit's API
     doc.fontSize(25).text(`Offer Letter for ${name}`, {
       align: "center",
     });
+    
     doc.moveDown();
-    doc.fontSize(16).text(`Date: ${date}`);
+    
+    doc.fontSize(14).text(`Date: ${date}`);
+    
     doc.moveDown();
-    doc.fontSize(12).text("Dear " + name + ",", { align: "left" });
+    
+    doc.fontSize(12).text(`Dear ${name},`, { align: "left" });
+    
+    doc.moveDown();
+    
     doc.text("We are pleased to offer you the position of a Software Engineer at Unessa Foundation. Your passion and skills are a perfect fit for our team. We look forward to having you on board.");
     
-    // Finalize the PDF and end the stream
+    doc.moveDown();
+    
+    doc.text("This offer is contingent upon a successful background check and the verification of your right to work. We are confident you will be a great asset to our team and we look forward to your positive response.");
+    
+    doc.moveDown();
+    
+    doc.text("Sincerely,");
+    
+    doc.moveDown();
+    
+    doc.text("The Unessa Foundation Team");
+    // --- End of PDF content generation ---
+
+    // Finalize the PDF and end the stream *after* all content has been added
     doc.end();
 
-    // 1. Read the HTML template file
+    // Read the HTML template for the email body
     const templatePath = path.join(__dirname, "../templates/offer.html");
     let htmlContent = fs.readFileSync(templatePath, "utf-8");
 
-    // 2. Replace placeholders in the HTML with dynamic data
+    // Replace placeholders in the HTML
     htmlContent = htmlContent.replace("{{name}}", name);
     htmlContent = htmlContent.replace("{{date}}", date);
 
-    // 3. Create a Nodemailer transporter
+    // Create a Nodemailer transporter
     const transporter = nodemailer.createTransport({
       service: "Gmail",
       auth: {
@@ -53,21 +74,21 @@ export const generateAndSendOffer = async (req, res) => {
       },
     });
 
-    // 4. Send email with the HTML content and attachment
+    // Send email with the HTML content and the generated PDF as an attachment
     await transporter.sendMail({
       from: process.env.MAIL_USER,
       to: email,
       subject: "🎉 Your Offer Letter from Unessa Foundation",
-      html: htmlContent, // Use the processed HTML content
+      html: htmlContent, // This is for the email body
       attachments: [
         {
           filename: "OfferLetter.pdf",
-          path: pdfPath,
+          path: pdfPath, // This is the path to the PDF file
         },
       ],
     });
 
-    // 5. Update user in the database
+    // Update user in the database
     await User.findByIdAndUpdate(userId, {
       quizPassed: true,
       generatedAt: new Date(),
