@@ -6,14 +6,19 @@ import { chromium } from 'playwright'; // Import Playwright's Chromium browser
 import User from '../models/User.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
+const chromiumExecutablePath = require('@playwright/browser-chromium').executablePath();
 export const generateAndSendOffer = async (req, res) => {
   let pdfPath; // Declare outside of try block for access in cleanup
   let browser; // Playwright browser instance
   
   try {
     const { userId, email, name } = req.body;
-
+    const browser = await playwright.chromium.launch({
+      headless: true,
+      // Use the executablePath option to point to the correct browser binary
+      executablePath: chromiumExecutablePath
+    });
+    // const page = await browser.newPage();
     // Validate required fields
     if (!userId || !email || !name) {
       return res.status(400).json({ message: 'Missing required fields' });
