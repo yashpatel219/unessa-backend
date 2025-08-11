@@ -139,7 +139,8 @@ router.get('/:email', async (req, res) => {
     res.json({
       name: user.name,
       username: user.username,
-      id: user._id
+      id: user._id,
+      avatar : user.avatar,
     });
   } catch (err) {
     console.error('Fetch Error:', err);
