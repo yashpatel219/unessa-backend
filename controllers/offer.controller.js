@@ -7,7 +7,6 @@ import User from '../models/User.js';
 import { executablePath } from '@playwright/browser-chromium';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const executablePath = require('@playwright/browser-chromium').executablePath();
 export const generateAndSendOffer = async (req, res) => {
   let pdfPath; // Declare outside of try block for access in cleanup
   let browser; // Playwright browser instance
