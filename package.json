@@ -24,7 +24,7 @@
     "nodemailer": "^7.0.5",
     "razorpay": "^2.9.6",
     "node-fetch": "^3.3.2",
-    "puppeteer": "^20.8.3"
+    "pdfkit": "^0.17.1"
 
 
   }
