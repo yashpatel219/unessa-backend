@@ -4,7 +4,6 @@ import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
 import User from '../models/User.js';
-import handlebars from 'handlebars'; // For template processing
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,19 +38,20 @@ export const generateAndSendOffer = async (req, res) => {
     const stream = fs.createWriteStream(pdfPath);
     doc.pipe(stream);
 
-    // Load and process HTML template for PDF content
+    // Read and process ONLY the offer.html template
     const templatePath = path.join(__dirname, '../templates/offer.html');
-    const htmlTemplate = fs.readFileSync(templatePath, 'utf8');
+    let offerContent = fs.readFileSync(templatePath, 'utf8');
     
-    // Compile template with Handlebars
-    const template = handlebars.compile(htmlTemplate);
-    const htmlContent = template({ name, date });
+    // Replace placeholders in offer template only
+    offerContent = offerContent
+      .replace(/{{name}}/g, name)
+      .replace(/{{date}}/g, date);
 
-    // Convert HTML to PDF content (simplified approach)
-    // Note: For complex HTML, consider using html-pdf or puppeteer instead
-    const pdfContent = htmlContent
-      .replace(/<[^>]*>/g, '') // Basic HTML stripping
-      .replace(/\n\s*\n/g, '\n'); // Remove extra newlines
+    // Convert HTML to plain text for PDF
+    const pdfContent = offerContent
+      .replace(/<[^>]*>/g, '') // Remove HTML tags
+      .replace(/\n\s*\n/g, '\n') // Remove excessive newlines
+      .trim();
 
     // Add content to PDF
     doc.font('Helvetica')
@@ -62,11 +62,6 @@ export const generateAndSendOffer = async (req, res) => {
          paragraphGap: 10
        });
 
-    // Add signature line
-    doc.moveDown(2);
-    doc.text('Sincerely,', { continued: true })
-       .text('\n\n_________________________\nHR Manager\nCompany Name');
-
     // Finalize PDF
     doc.end();
 
@@ -76,11 +71,9 @@ export const generateAndSendOffer = async (req, res) => {
       stream.on('error', reject);
     });
 
-    // 2. Prepare email content using the same template
+    // 2. Prepare email content (using original email.html WITHOUT placeholder replacement)
     const emailTemplatePath = path.join(__dirname, '../templates/email.html');
-    const emailHtmlTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
-    const emailTemplate = handlebars.compile(emailHtmlTemplate);
-    const emailHtmlContent = emailTemplate({ name, date });
+    const emailHtmlContent = fs.readFileSync(emailTemplatePath, 'utf8');
 
     // 3. Send email with attachment
     const transporter = nodemailer.createTransport({
@@ -95,7 +88,7 @@ export const generateAndSendOffer = async (req, res) => {
       from: `"HR Team" <${process.env.MAIL_USER}>`,
       to: email,
       subject: `Your Offer Letter - ${name}`,
-      html: emailHtmlContent,
+      html: emailHtmlContent, // Using original template without replacements
       attachments: [
         {
           filename: `Offer_Letter_${name.replace(/\s+/g, '_')}.pdf`,
