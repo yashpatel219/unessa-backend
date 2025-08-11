@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "postinstall": "npx puppeteer browsers install chrome"
+    "postinstall": "npx playwright install"
   }, 
   "engines": {
     "node": "20.x"
@@ -22,9 +22,8 @@
     "socket.io": "^4.7.1",
     "mongoose": "^8.16.4",
     "nodemailer": "^7.0.5",
-    "pdfkit": "^0.17.1",
-    "razorpay": "^2.9.6",
-    "node-fetch": "^3.3.2"
+    "playwright": "^1.44.1",
+    "razorpay": "^2.9.6"
 
 
   }
