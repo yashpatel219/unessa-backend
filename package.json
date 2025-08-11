@@ -22,7 +22,6 @@
     "socket.io": "^4.7.1",
     "mongoose": "^8.16.4",
     "nodemailer": "^7.0.5",
-     "puppeteer": "^24.16.1",
     "razorpay": "^2.9.6",
     "node-fetch": "^3.3.2",
     "puppeteer": "^21.7.0"
