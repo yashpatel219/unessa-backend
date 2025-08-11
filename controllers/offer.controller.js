@@ -6,16 +6,7 @@ import User from "../models/User.js";
 import puppeteer from "puppeteer";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-(async () => {
-  const browser = await puppeteer.launch({
-    headless: false, // Shows Chrome GUI (set to `true` for headless)
-    args: ['--no-sandbox', '--disable-setuid-sandbox'] // Security flags
-  });
-  
-  const page = await browser.newPage();
-  await page.goto('https://google.com');
-  await browser.close();
-})();
+
 
 export const generateAndSendOffer = async (req, res) => {
   try {
@@ -34,10 +25,15 @@ export const generateAndSendOffer = async (req, res) => {
     html = html.replace(/{{name}}/g, name).replace(/{{date}}/g, date);
 
     const browser = await puppeteer.launch({
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      headless: 'new' // Required for Render.com
+      headless: 'new', // Required for Render.com
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage' // Prevents crashes
+      ],
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser' // Render's built-in Chrome
     });
+    
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
 
