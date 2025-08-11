@@ -3,7 +3,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
-import User from '../models/User.js'; // Adjust path as needed
+import User from '../models/User.js';
+import handlebars from 'handlebars'; // For template processing
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -38,38 +39,33 @@ export const generateAndSendOffer = async (req, res) => {
     const stream = fs.createWriteStream(pdfPath);
     doc.pipe(stream);
 
-    // Add content to PDF
-    doc.font('Helvetica-Bold')
-       .fontSize(20)
-       .text('OFFER LETTER', { align: 'center' });
+    // Load and process HTML template for PDF content
+    const templatePath = path.join(__dirname, '../templates/offer.html');
+    const htmlTemplate = fs.readFileSync(templatePath, 'utf8');
     
-    doc.moveDown();
+    // Compile template with Handlebars
+    const template = handlebars.compile(htmlTemplate);
+    const htmlContent = template({ name, date });
+
+    // Convert HTML to PDF content (simplified approach)
+    // Note: For complex HTML, consider using html-pdf or puppeteer instead
+    const pdfContent = htmlContent
+      .replace(/<[^>]*>/g, '') // Basic HTML stripping
+      .replace(/\n\s*\n/g, '\n'); // Remove extra newlines
+
+    // Add content to PDF
     doc.font('Helvetica')
        .fontSize(12)
-       .text(`Date: ${date}`, { align: 'right' });
-    
-    doc.moveDown(2);
-    doc.fontSize(14)
-       .text(`Dear ${name},`, { align: 'left' });
-    
-    doc.moveDown();
-    doc.fontSize(12)
-       .text('We are pleased to offer you the position of Software Engineer at our company.', {
+       .text(pdfContent, {
          align: 'left',
-         lineGap: 5
+         lineGap: 5,
+         paragraphGap: 10
        });
-    
-    doc.moveDown();
-    doc.text('This offer is contingent upon satisfactory completion of all pre-employment requirements.', {
-      lineGap: 5
-    });
-    
+
     // Add signature line
-    doc.moveDown(3);
+    doc.moveDown(2);
     doc.text('Sincerely,', { continued: true })
-       .text('\n\n_________________________\nHR Manager\nCompany Name', {
-         lineGap: 5
-       });
+       .text('\n\n_________________________\nHR Manager\nCompany Name');
 
     // Finalize PDF
     doc.end();
@@ -80,15 +76,11 @@ export const generateAndSendOffer = async (req, res) => {
       stream.on('error', reject);
     });
 
-    // 2. Prepare email content
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2c3e50;">Congratulations, ${name}!</h2>
-        <p>Please find your offer letter attached.</p>
-        <p>If you have any questions, please don't hesitate to contact us.</p>
-        <p>Best regards,<br>The Hiring Team</p>
-      </div>
-    `;
+    // 2. Prepare email content using the same template
+    const emailTemplatePath = path.join(__dirname, '../templates/email.html');
+    const emailHtmlTemplate = fs.readFileSync(emailTemplatePath, 'utf8');
+    const emailTemplate = handlebars.compile(emailHtmlTemplate);
+    const emailHtmlContent = emailTemplate({ name, date });
 
     // 3. Send email with attachment
     const transporter = nodemailer.createTransport({
@@ -103,7 +95,7 @@ export const generateAndSendOffer = async (req, res) => {
       from: `"HR Team" <${process.env.MAIL_USER}>`,
       to: email,
       subject: `Your Offer Letter - ${name}`,
-      html: htmlContent,
+      html: emailHtmlContent,
       attachments: [
         {
           filename: `Offer_Letter_${name.replace(/\s+/g, '_')}.pdf`,
