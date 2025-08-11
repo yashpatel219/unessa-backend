@@ -24,15 +24,17 @@ export const generateAndSendOffer = async (req, res) => {
     let html = fs.readFileSync(templatePath, "utf8");
     html = html.replace(/{{name}}/g, name).replace(/{{date}}/g, date);
 
-    const browser = await puppeteer.launch({
-      headless: 'new', // Required for Render.com
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage' // Prevents crashes
-      ],
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser' // Render's built-in Chrome
-    });
+ const browser = await puppeteer.launch({
+  executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || 
+    // Fallback for local Windows development
+    'C:\\Users\\HP\\.cache\\puppeteer\\chrome\\win64-139.0.7258.66\\chrome-win64\\chrome.exe',
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage'  // Prevents crashes in Linux
+  ],
+  headless: 'new'  // Required for Render.com
+});
     
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
