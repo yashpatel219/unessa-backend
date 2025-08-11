@@ -4,9 +4,10 @@ import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 import { chromium } from 'playwright'; // Import Playwright's Chromium browser
 import User from '../models/User.js';
+import { executablePath } from '@playwright/browser-chromium';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const chromiumExecutablePath = require('@playwright/browser-chromium').executablePath();
+const executablePath = require('@playwright/browser-chromium').executablePath();
 export const generateAndSendOffer = async (req, res) => {
   let pdfPath; // Declare outside of try block for access in cleanup
   let browser; // Playwright browser instance
@@ -16,7 +17,7 @@ export const generateAndSendOffer = async (req, res) => {
     const browser = await playwright.chromium.launch({
       headless: true,
       // Use the executablePath option to point to the correct browser binary
-      executablePath: chromiumExecutablePath
+      executablePath: executablePath()
     });
     // const page = await browser.newPage();
     // Validate required fields
