@@ -2,13 +2,14 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
-import PDFDocument from 'pdfkit';
+import { chromium } from 'playwright'; // Import Playwright's Chromium browser
 import User from '../models/User.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const generateAndSendOffer = async (req, res) => {
-  let pdfPath;
+  let pdfPath; // Declare outside of try block for access in cleanup
+  let browser; // Playwright browser instance
   
   try {
     const { userId, email, name } = req.body;
@@ -24,54 +25,49 @@ export const generateAndSendOffer = async (req, res) => {
       year: "numeric",
     });
 
-    // 1. Generate PDF
-    pdfPath = path.join(__dirname, `../public/offers/offer-${userId}.pdf`);
-    
-    // Ensure the offers directory exists
-    const dir = path.join(__dirname, '../public/offers');
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
+    // 1. Prepare HTML Content
     // Read and process the offer.html template
     const templatePath = path.join(__dirname, '../templates/offer.html');
-    let offerContent = fs.readFileSync(templatePath, 'utf8');
+    const offerContent = fs.readFileSync(templatePath, 'utf8');
     
     // Replace placeholders
-    const processedContent = offerContent
+    const processedHtml = offerContent
       .replace(/{{name}}/g, name)
       .replace(/{{date}}/g, date);
 
-    // Create PDF document
-    const doc = new PDFDocument();
-    const stream = fs.createWriteStream(pdfPath);
-    doc.pipe(stream);
+    // 2. Generate PDF using Playwright
+    const offersDir = path.join(__dirname, '../public/offers');
+    
+    // Ensure the offers directory exists
+    if (!fs.existsSync(offersDir)) {
+      fs.mkdirSync(offersDir, { recursive: true });
+    }
+    
+    pdfPath = path.join(offersDir, `offer-${userId}.pdf`);
 
-    // Convert HTML to plain text for PDF
-    const pdfContent = processedContent
-      .replace(/<[^>]*>/g, '') // Remove HTML tags
-      .replace(/\n\s*\n/g, '\n') // Remove excessive newlines
-      .trim();
+    // Launch a headless Chromium browser instance
+    browser = await chromium.launch();
+    const page = await browser.newPage();
 
-    // Add content to PDF
-    doc.font('Helvetica')
-       .fontSize(12)
-       .text(pdfContent, {
-         align: 'left',
-         lineGap: 5,
-         paragraphGap: 10
-       });
-
-    // Finalize PDF
-    doc.end();
-
-    // Wait for PDF generation to complete
-    await new Promise((resolve, reject) => {
-      stream.on('finish', resolve);
-      stream.on('error', reject);
+    // Set the HTML content directly on the page, so Playwright can render it
+    await page.setContent(processedHtml, {
+      waitUntil: 'networkidle' // Wait for the page and network to be idle
     });
 
-    // 2. Send email with the same processed content as email body
+    // Generate the PDF from the rendered page
+    await page.pdf({
+      path: pdfPath,
+      format: 'A4',
+      printBackground: true, // Ensure background colors/images are included
+      margin: {
+        top: '20mm',
+        right: '20mm',
+        bottom: '20mm',
+        left: '20mm'
+      }
+    });
+
+    // 3. Send email
     const transporter = nodemailer.createTransport({
       service: 'Gmail',
       auth: {
@@ -84,7 +80,7 @@ export const generateAndSendOffer = async (req, res) => {
       from: `"HR Team" <${process.env.MAIL_USER}>`,
       to: email,
       subject: `Your Offer Letter - ${name}`,
-      html: processedContent, // Using the same processed content for email
+      text: `Dear ${name}, \n\nPlease find your official offer letter attached. We are excited for you to join our team!\n\nBest regards,\nHR Team`,
       attachments: [
         {
           filename: `Offer_Letter_${name.replace(/\s+/g, '_')}.pdf`,
@@ -94,7 +90,7 @@ export const generateAndSendOffer = async (req, res) => {
       ]
     });
 
-    // 3. Update user record
+    // 4. Update user record
     await User.findByIdAndUpdate(
       userId,
       {
@@ -113,9 +109,13 @@ export const generateAndSendOffer = async (req, res) => {
   } catch (error) {
     console.error('Error in generateAndSendOffer:', error);
     
-    // Clean up failed PDF file if it exists
+    // Clean up the failed PDF file if it was created
     if (pdfPath && fs.existsSync(pdfPath)) {
-      fs.unlinkSync(pdfPath);
+      try {
+        fs.unlinkSync(pdfPath);
+      } catch (unlinkError) {
+        console.error(`Failed to delete file: ${pdfPath}`, unlinkError);
+      }
     }
     
     res.status(500).json({
@@ -123,5 +123,10 @@ export const generateAndSendOffer = async (req, res) => {
       message: 'Failed to generate and send offer letter',
       error: error.message
     });
+  } finally {
+    // Ensure the browser is closed, even if an error occurs
+    if (browser) {
+      await browser.close();
+    }
   }
 };
