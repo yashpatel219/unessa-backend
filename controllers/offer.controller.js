@@ -33,22 +33,22 @@ export const generateAndSendOffer = async (req, res) => {
       fs.mkdirSync(dir, { recursive: true });
     }
 
+    // Read and process the offer.html template
+    const templatePath = path.join(__dirname, '../templates/offer.html');
+    let offerContent = fs.readFileSync(templatePath, 'utf8');
+    
+    // Replace placeholders
+    const processedContent = offerContent
+      .replace(/{{name}}/g, name)
+      .replace(/{{date}}/g, date);
+
     // Create PDF document
     const doc = new PDFDocument();
     const stream = fs.createWriteStream(pdfPath);
     doc.pipe(stream);
 
-    // Read and process ONLY the offer.html template
-    const templatePath = path.join(__dirname, '../templates/offer.html');
-    let offerContent = fs.readFileSync(templatePath, 'utf8');
-    
-    // Replace placeholders in offer template only
-    offerContent = offerContent
-      .replace(/{{name}}/g, name)
-      .replace(/{{date}}/g, date);
-
     // Convert HTML to plain text for PDF
-    const pdfContent = offerContent
+    const pdfContent = processedContent
       .replace(/<[^>]*>/g, '') // Remove HTML tags
       .replace(/\n\s*\n/g, '\n') // Remove excessive newlines
       .trim();
@@ -71,11 +71,7 @@ export const generateAndSendOffer = async (req, res) => {
       stream.on('error', reject);
     });
 
-    // 2. Prepare email content (using original email.html WITHOUT placeholder replacement)
-    const emailTemplatePath = path.join(__dirname, '../templates/email.html');
-    const emailHtmlContent = fs.readFileSync(emailTemplatePath, 'utf8');
-
-    // 3. Send email with attachment
+    // 2. Send email with the same processed content as email body
     const transporter = nodemailer.createTransport({
       service: 'Gmail',
       auth: {
@@ -88,7 +84,7 @@ export const generateAndSendOffer = async (req, res) => {
       from: `"HR Team" <${process.env.MAIL_USER}>`,
       to: email,
       subject: `Your Offer Letter - ${name}`,
-      html: emailHtmlContent, // Using original template without replacements
+      html: processedContent, // Using the same processed content for email
       attachments: [
         {
           filename: `Offer_Letter_${name.replace(/\s+/g, '_')}.pdf`,
@@ -98,7 +94,7 @@ export const generateAndSendOffer = async (req, res) => {
       ]
     });
 
-    // 4. Update user record
+    // 3. Update user record
     await User.findByIdAndUpdate(
       userId,
       {
@@ -109,7 +105,6 @@ export const generateAndSendOffer = async (req, res) => {
       { new: true }
     );
 
-    // 5. Send success response
     res.status(200).json({
       success: true,
       message: 'Offer letter generated and sent successfully'
