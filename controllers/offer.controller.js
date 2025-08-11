@@ -3,7 +3,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
 import User from "../models/User.js";
-import puppeteer from "puppeteer";
+import PDFDocument from "pdfkit";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,32 +18,29 @@ export const generateAndSendOffer = async (req, res) => {
       year: "numeric",
     });
 
-    // Load the template
-    const templatePath = path.join(__dirname, "../templates/offer.html");
-    // const content = fs.readFileSync(templatePath, "binary");
-    let html = fs.readFileSync(templatePath, "utf8");
-    html = html.replace(/{{name}}/g, name).replace(/{{date}}/g, date);
-
- const browser = await puppeteer.launch({
-  executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || 
-    // Fallback for local Windows development
-    'C:\\Users\\HP\\.cache\\puppeteer\\chrome\\win64-139.0.7258.66\\chrome-win64\\chrome.exe',
-  args: [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage'  // Prevents crashes in Linux
-  ],
-  headless: 'new'  // Required for Render.com
-});
-    
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
-
     const pdfPath = path.join(__dirname, `../public/offer-${userId}.pdf`);
-    await page.pdf({ path: pdfPath, format: "A4" });
-    await browser.close();
+    const doc = new PDFDocument();
 
+    // Pipe the PDF content to a writeable file stream
+    doc.pipe(fs.createWriteStream(pdfPath));
 
+    // Add content to the PDF using PDFKit's API
+    doc.fontSize(25).text(`Offer Letter for ${name}`, {
+      align: "center",
+    });
+
+    doc.moveDown();
+
+    doc.fontSize(16).text(`Date: ${date}`);
+
+    doc.moveDown();
+
+    // Add a signature and other offer letter content here
+    doc.fontSize(12).text("Dear " + name + ",", { align: "left" });
+    doc.text("We are pleased to offer you the position of a Software Engineer at Unessa Foundation. Your passion and skills are a perfect fit for our team. We look forward to having you on board.");
+    
+    // Finalize the PDF and end the stream
+    doc.end();
     // Send email with attachment
     const transporter = nodemailer.createTransport({
       service: "Gmail",
