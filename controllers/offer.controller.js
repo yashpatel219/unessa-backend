@@ -2,23 +2,18 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
-import { chromium } from 'playwright'; // Import Playwright's Chromium browser
+import { chromium } from 'playwright-core';
 import User from '../models/User.js';
 import { executablePath } from '@playwright/browser-chromium';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 export const generateAndSendOffer = async (req, res) => {
-  let pdfPath; // Declare outside of try block for access in cleanup
   let browser; // Playwright browser instance
   
   try {
     const { userId, email, name } = req.body;
-    const browser = await playwright.chromium.launch({
-      headless: true,
-      // Use the executablePath option to point to the correct browser binary
-      executablePath: executablePath()
-    });
-    // const page = await browser.newPage();
+    
     // Validate required fields
     if (!userId || !email || !name) {
       return res.status(400).json({ message: 'Missing required fields' });
@@ -31,39 +26,31 @@ export const generateAndSendOffer = async (req, res) => {
     });
 
     // 1. Prepare HTML Content
-    // Read and process the offer.html template
     const templatePath = path.join(__dirname, '../templates/offer.html');
     const offerContent = fs.readFileSync(templatePath, 'utf8');
     
-    // Replace placeholders
     const processedHtml = offerContent
       .replace(/{{name}}/g, name)
       .replace(/{{date}}/g, date);
 
     // 2. Generate PDF using Playwright
-    const offersDir = path.join(__dirname, '../public/offers');
-    
-    // Ensure the offers directory exists
-    if (!fs.existsSync(offersDir)) {
-      fs.mkdirSync(offersDir, { recursive: true });
-    }
-    
-    pdfPath = path.join(offersDir, `offer-${userId}.pdf`);
-
     // Launch a headless Chromium browser instance
-    browser = await chromium.launch();
+    browser = await chromium.launch({
+      headless: true,
+      executablePath: executablePath()
+    });
+    
     const page = await browser.newPage();
 
     // Set the HTML content directly on the page, so Playwright can render it
     await page.setContent(processedHtml, {
-      waitUntil: 'networkidle' // Wait for the page and network to be idle
+      waitUntil: 'networkidle'
     });
 
-    // Generate the PDF from the rendered page
-    await page.pdf({
-      path: pdfPath,
+    // Generate the PDF as a buffer (in-memory) instead of saving to a file
+    const pdfBuffer = await page.pdf({
       format: 'A4',
-      printBackground: true, // Ensure background colors/images are included
+      printBackground: true,
       margin: {
         top: '20mm',
         right: '20mm',
@@ -89,23 +76,13 @@ export const generateAndSendOffer = async (req, res) => {
       attachments: [
         {
           filename: `Offer_Letter_${name.replace(/\s+/g, '_')}.pdf`,
-          path: pdfPath,
+          content: pdfBuffer,
           contentType: 'application/pdf'
         }
       ]
     });
 
-    // 4. Update user record
-    await User.findByIdAndUpdate(
-      userId,
-      {
-        offerLetterSent: true,
-        offerLetterPath: `/offers/offer-${userId}.pdf`,
-        offerSentDate: new Date()
-      },
-      { new: true }
-    );
-
+    // 4. Respond to the request
     res.status(200).json({
       success: true,
       message: 'Offer letter generated and sent successfully'
@@ -113,15 +90,6 @@ export const generateAndSendOffer = async (req, res) => {
 
   } catch (error) {
     console.error('Error in generateAndSendOffer:', error);
-    
-    // Clean up the failed PDF file if it was created
-    if (pdfPath && fs.existsSync(pdfPath)) {
-      try {
-        fs.unlinkSync(pdfPath);
-      } catch (unlinkError) {
-        console.error(`Failed to delete file: ${pdfPath}`, unlinkError);
-      }
-    }
     
     res.status(500).json({
       success: false,
