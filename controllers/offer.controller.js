@@ -4,7 +4,9 @@ import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 import { chromium } from 'playwright-core';
 import User from '../models/User.js';
-import executablePath from '@playwright/browser-chromium';
+
+// The require statement is used to get the default export from the package
+const executablePath = require('@playwright/browser-chromium');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
