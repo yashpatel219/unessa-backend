@@ -5,15 +5,15 @@ import nodemailer from 'nodemailer';
 import { chromium } from 'playwright-core';
 import User from '../models/User.js';
 
-// The require statement is used to get the default export from the package
-const executablePath = require('@playwright/browser-chromium');
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const generateAndSendOffer = async (req, res) => {
   let browser; // Playwright browser instance
   
   try {
+    // Dynamically import the executable path to be ES module compliant
+    const { executablePath } = await import('@playwright/browser-chromium');
+    
     const { userId, email, name } = req.body;
     
     // Validate required fields
