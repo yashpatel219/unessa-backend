@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 import { chromium } from 'playwright-core';
 import User from '../models/User.js';
-import { executablePath } from '@playwright/browser-chromium';
+import executablePath from '@playwright/browser-chromium';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
