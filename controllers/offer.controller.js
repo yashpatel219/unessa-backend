@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
-import { chromium } from 'playwright-core';
+import playwright from 'playwright';
 import User from '../models/User.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -11,9 +11,6 @@ export const generateAndSendOffer = async (req, res) => {
   let browser; // Playwright browser instance
   
   try {
-    // Dynamically import the executable path to be ES module compliant
-    const { executablePath } = await import('@playwright/browser-chromium');
-    
     const { userId, email, name } = req.body;
     
     // Validate required fields
@@ -37,9 +34,8 @@ export const generateAndSendOffer = async (req, res) => {
 
     // 2. Generate PDF using Playwright
     // Launch a headless Chromium browser instance
-    browser = await chromium.launch({
-      headless: true,
-      executablePath: executablePath()
+    browser = await playwright.chromium.launch({
+      headless: true
     });
     
     const page = await browser.newPage();
