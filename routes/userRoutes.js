@@ -1,30 +1,8 @@
 import express from 'express';
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
-import axios from 'axios';
-
+import axios from 'axios';   // :white_check_mark: Added axios for webhook call
 const router = express.Router();
-
-// ✅ Helper function to send webhook with retry
-const triggerWebhook = async (data, retries = 2) => {
-  try {
-    await axios.post(process.env.PABBLY_CONNECT_WEBHOOK_URL, data);
-    console.log("Webhook triggered successfully");
-  } catch (err) {
-    console.error("Webhook error:", err.message);
-
-    if (retries > 0) {
-      const delay = (3 - retries) * 60000; // 1st retry = 1 min, 2nd retry = 2 min
-      console.log(`Retrying webhook in ${delay / 60000} minute(s)...`);
-      setTimeout(() => {
-        triggerWebhook(data, retries - 1);
-      }, delay);
-    } else {
-      console.error("❌ Webhook failed after all retries");
-    }
-  }
-};
-
 // Register (Save user)
 router.post('/register', async (req, res) => {
   try {
@@ -49,16 +27,11 @@ router.post('/register', async (req, res) => {
       const randomSuffix = Math.floor(1000 + Math.random() * 9000);
       finalUsername = `${baseUsername}${randomSuffix}`;
     }
-    // :white_check_mark: Normalize phone number with +91 prefix
-    let formattedNumber = number?.trim();
-    if (formattedNumber && !formattedNumber.startsWith("+91")) {
-      formattedNumber = `+91${formattedNumber}`;
-    }
     // Create new user with cleaned data
     const newUser = new User({
       name: name.trim(),
       email: cleanEmail,
-      number: formattedNumber,   // :white_check_mark: Always stored with +91 prefix
+      number: number?.trim(),
       avatar,
       username: finalUsername
     });
@@ -68,7 +41,7 @@ router.post('/register', async (req, res) => {
     try {
       await axios.post(process.env.PABBLY_CONNECT_WEBHOOK_URL, {
         name: newUser.name,
-        number: newUser.number   // :white_check_mark: This already includes +91
+        number: newUser.number
       });
       console.log("Webhook triggered successfully");
     } catch (webhookErr) {
@@ -118,7 +91,7 @@ router.post('/register', async (req, res) => {
     });
   }
 });
-
+// POST /api/users/check
 router.post("/check", async (req, res) => {
   const { email } = req.body;
   try {
@@ -138,16 +111,13 @@ router.post("/check", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 router.get('/:email', async (req, res) => {
   try {
     const user = await User.findOne({ email: req.params.email });
     if (!user) return res.status(404).json({ message: 'User not found' });
-
     console.log('Name:', user.name);
     console.log('Username:', user.username);
     console.log('ID:', user._id.toString());
-
     res.json({
       name: user.name,
       username: user.username,
@@ -159,7 +129,6 @@ router.get('/:email', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 // Get user details by email
 router.get("/getUser/:email", async (req, res) => {
   try {
@@ -173,7 +142,6 @@ router.get("/getUser/:email", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 // Update Quiz Status
 router.post("/quiz-status", async (req, res) => {
   try {
@@ -193,7 +161,6 @@ router.post("/quiz-status", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 // Get Quiz Status
 router.get("/quiz-status/:email", async (req, res) => {
   try {
@@ -205,7 +172,6 @@ router.get("/quiz-status/:email", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 router.post("/mark-tour-seen", async (req, res) => {
   try {
     const { email } = req.body;
@@ -220,7 +186,4 @@ router.post("/mark-tour-seen", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 export default router;
-
-
