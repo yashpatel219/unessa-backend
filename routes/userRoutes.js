@@ -2,12 +2,28 @@ import express from 'express';
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import axios from 'axios'; // Import axios for making the webhook request
-// The crypto import is no longer needed as we are not handling passwords.
 
 const router = express.Router();
 
 // A conceptual webhook URL. You should store this in your .env file.
 const PABBLY_CONNECT_WEBHOOK_URL = process.env.PABBLY_CONNECT_WEBHOOK_URL;
+
+// Function to send data to Pabbly Connect webhook
+async function sendToPabbly(name, number, email, username) {
+  if (PABBLY_CONNECT_WEBHOOK_URL) {
+    try {
+      await axios.post(PABBLY_CONNECT_WEBHOOK_URL, {
+        name: name,
+        number: number,
+        email: email,
+        username: username,
+      });
+      console.log('✅ Webhook sent to Pabbly Connect.');
+    } catch (webhookError) {
+      console.error('❌ Failed to send webhook to Pabbly Connect:', webhookError.message);
+    }
+  }
+}
 
 // Register (Save user)
 router.post('/register', async (req, res) => {
@@ -46,27 +62,14 @@ router.post('/register', async (req, res) => {
       number: number?.trim(),
       avatar,
       username: finalUsername
-      // The password field has been removed
     });
 
     await newUser.save();
     
     console.log("User registered successfully:", newUser.email);
     
-    // ✅ Trigger the webhook after successful registration
-    if (PABBLY_CONNECT_WEBHOOK_URL) {
-      try {
-        await axios.post(PABBLY_CONNECT_WEBHOOK_URL, {
-          name: newUser.name, // Sending the name
-          number: newUser.number, // Sending the number
-          email: newUser.email,
-          username: newUser.username,
-        });
-        console.log('✅ Webhook sent to Pabbly Connect.');
-      } catch (webhookError) {
-        console.error('❌ Failed to send webhook to Pabbly Connect:', webhookError.message);
-      }
-    }
+    // ✅ Call the new function to trigger the webhook
+    await sendToPabbly(newUser.name, newUser.number, newUser.email, newUser.username);
     
     const token = jwt.sign(
       { id: newUser._id, email: newUser.email },
