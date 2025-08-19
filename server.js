@@ -29,7 +29,7 @@ const razorpay = new Razorpay({
 
 // ✅ CORS configuration (add frontend origins)
 const allowedOrigins = [
-  "https://volunteerdashboard-production.up.railway.app",
+  "https://internapi.unessafoundation.org",
   "http://localhost:5173",
   "http://localhost:3000", // optional dev port if used
 ];
