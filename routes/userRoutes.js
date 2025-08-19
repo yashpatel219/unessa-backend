@@ -1,9 +1,29 @@
 import express from 'express';
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
-import axios from 'axios';   // ✅ Added axios for webhook call
+import axios from 'axios';
 
 const router = express.Router();
+
+// ✅ Helper function to send webhook with retry
+const triggerWebhook = async (data, retries = 2) => {
+  try {
+    await axios.post(process.env.PABBLY_CONNECT_WEBHOOK_URL, data);
+    console.log("Webhook triggered successfully");
+  } catch (err) {
+    console.error("Webhook error:", err.message);
+
+    if (retries > 0) {
+      const delay = (3 - retries) * 60000; // 1st retry = 1 min, 2nd retry = 2 min
+      console.log(`Retrying webhook in ${delay / 60000} minute(s)...`);
+      setTimeout(() => {
+        triggerWebhook(data, retries - 1);
+      }, delay);
+    } else {
+      console.error("❌ Webhook failed after all retries");
+    }
+  }
+};
 
 // Register (Save user)
 router.post('/register', async (req, res) => {
@@ -45,16 +65,11 @@ router.post('/register', async (req, res) => {
     await newUser.save();
     console.log("User registered successfully:", newUser.email);
 
-    // ✅ Trigger Pabbly Webhook
-    try {
-      await axios.post(process.env.PABBLY_CONNECT_WEBHOOK_URL, {
-        name: newUser.name,
-        number: newUser.number
-      });
-      console.log("Webhook triggered successfully");
-    } catch (webhookErr) {
-      console.error("Webhook error:", webhookErr.message);
-    }
+    // ✅ Trigger webhook with retries (1 min, 2 min)
+    triggerWebhook({
+      name: newUser.name,
+      number: newUser.number
+    });
 
     const token = jwt.sign(
       { id: newUser._id, email: newUser.email },
@@ -105,108 +120,6 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// POST /api/users/check
-router.post("/check", async (req, res) => {
-  const { email } = req.body;
-  try {
-    const user = await User.findOne({ email });
-    if (user) {
-      const token = jwt.sign(
-        { id: user._id, email: user.email },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
-      );
-      res.json({ exists: true, user, token });
-    } else {
-      res.json({ exists: false });
-    }
-  } catch (err) {
-    console.error("Error checking user:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-router.get('/:email', async (req, res) => {
-  try {
-    const user = await User.findOne({ email: req.params.email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    console.log('Name:', user.name);
-    console.log('Username:', user.username);
-    console.log('ID:', user._id.toString());
-
-    res.json({
-      name: user.name,
-      username: user.username,
-      id: user._id,
-      avatar : user.avatar,
-    });
-  } catch (err) {
-    console.error('Fetch Error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Get user details by email
-router.get("/getUser/:email", async (req, res) => {
-  try {
-    const user = await User.findOne({ email: req.params.email });
-    if (user) {
-      res.json(user);
-    } else {
-      res.status(404).json({ message: "User not found" });
-    }
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// Update Quiz Status
-router.post("/quiz-status", async (req, res) => {
-  try {
-    const { email, status } = req.body;
-    if (!["notAttempted", "passed", "failed"].includes(status)) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
-    const user = await User.findOneAndUpdate(
-      { email },
-      { quizStatus: status },
-      { new: true }
-    );
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json({ success: true, quizStatus: user.quizStatus });
-  } catch (err) {
-    console.error("Error updating quiz status:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// Get Quiz Status
-router.get("/quiz-status/:email", async (req, res) => {
-  try {
-    const user = await User.findOne({ email: req.params.email });
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json({ quizStatus: user.quizStatus });
-  } catch (err) {
-    console.error("Error fetching quiz status:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-router.post("/mark-tour-seen", async (req, res) => {
-  try {
-    const { email } = req.body;
-    const user = await User.findOneAndUpdate(
-      { email },
-      { hasSeenTour: true },
-      { new: true }
-    );
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
 export default router;
+
 
