@@ -53,6 +53,21 @@ router.post('/register', async (req, res) => {
     
     console.log("User registered successfully:", newUser.email);
     
+    // ✅ Trigger the webhook after successful registration
+    if (PABBLY_CONNECT_WEBHOOK_URL) {
+      try {
+        await axios.post(PABBLY_CONNECT_WEBHOOK_URL, {
+          name: newUser.name, // Sending the name
+          number: newUser.number, // Sending the number
+          email: newUser.email,
+          username: newUser.username,
+        });
+        console.log('✅ Webhook sent to Pabbly Connect.');
+      } catch (webhookError) {
+        console.error('❌ Failed to send webhook to Pabbly Connect:', webhookError.message);
+      }
+    }
+    
     const token = jwt.sign(
       { id: newUser._id, email: newUser.email },
       process.env.JWT_SECRET,
@@ -100,88 +115,6 @@ router.post('/register', async (req, res) => {
       error: 'Registration failed',
       details: err.message 
     });
-  }
-});
-
-// POST /api/users/login (UPDATED LOGIN ENDPOINT - NO PASSWORD CHECK)
-router.post('/login', async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    // Validate input
-    if (!email) {
-      return res.status(400).json({ message: "Email is required." });
-    }
-
-    // Find the user by email
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found." });
-    }
-
-    // Since there's no password, we proceed directly to login
-    console.log('✅ User logged in successfully');
-    
-    // Generate a JWT token
-    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
-      expiresIn: '7d',
-    });
-
-    // Send user data to Pabbly Connect webhook, including name and number
-    // It's good practice to check if the URL exists before sending the request
-    if (PABBLY_CONNECT_WEBHOOK_URL) {
-      await axios.post(PABBLY_CONNECT_WEBHOOK_URL, {
-        name: user.name, // Sending the name
-        number: user.number, // Sending the number
-        email: user.email,
-        username: user.username,
-        // You can add other user details here
-      });
-      console.log('✅ Webhook sent to Pabbly Connect.');
-    }
-
-    // Send a successful response to the frontend
-    res.status(200).json({
-      success: true,
-      message: "Login successful",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        username: user.username,
-        avatar: user.avatar
-      },
-      token,
-    });
-
-  } catch (error) {
-    console.error('❌ Login error:', error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// POST /api/users/check
-router.post("/check", async (req, res) => {
-  const { email } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-
-    if (user) {
-      // ✅ Generate JWT
-      const token = jwt.sign(
-        { id: user._id, email: user.email },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
-      );
-
-      res.json({ exists: true, user, token });
-    } else {
-      res.json({ exists: false });
-    }
-  } catch (err) {
-    console.error("Error checking user:", err);
-    res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -274,8 +207,5 @@ router.post("/mark-tour-seen", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
-
 
 export default router;
