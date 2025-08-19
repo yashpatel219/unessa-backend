@@ -1,12 +1,15 @@
 import express from 'express';
 import User from '../models/User.js';
-import jwt from 'jsonwebtoken'; 
+import jwt from 'jsonwebtoken';
+import axios from 'axios'; // Import axios for making the webhook request
+// The crypto import is no longer needed as we are not handling passwords.
+
 const router = express.Router();
 
-// Register (Save user)
-// Register (Save user)
-// Add at the top of userRoutes.js
+// A conceptual webhook URL. You should store this in your .env file.
+const PABBLY_CONNECT_WEBHOOK_URL = process.env.PABBLY_CONNECT_WEBHOOK_URL;
 
+// Register (Save user)
 router.post('/register', async (req, res) => {
   try {
     // Add request body validation
@@ -42,7 +45,8 @@ router.post('/register', async (req, res) => {
       email: cleanEmail,
       number: number?.trim(),
       avatar,
-      username: finalUsername 
+      username: finalUsername
+      // The password field has been removed
     });
 
     await newUser.save();
@@ -99,6 +103,62 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// POST /api/users/login (UPDATED LOGIN ENDPOINT - NO PASSWORD CHECK)
+router.post('/login', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Validate input
+    if (!email) {
+      return res.status(400).json({ message: "Email is required." });
+    }
+
+    // Find the user by email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Since there's no password, we proceed directly to login
+    console.log('✅ User logged in successfully');
+    
+    // Generate a JWT token
+    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
+      expiresIn: '7d',
+    });
+
+    // Send user data to Pabbly Connect webhook, including name and number
+    // It's good practice to check if the URL exists before sending the request
+    if (PABBLY_CONNECT_WEBHOOK_URL) {
+      await axios.post(PABBLY_CONNECT_WEBHOOK_URL, {
+        name: user.name, // Sending the name
+        number: user.number, // Sending the number
+        email: user.email,
+        username: user.username,
+        // You can add other user details here
+      });
+      console.log('✅ Webhook sent to Pabbly Connect.');
+    }
+
+    // Send a successful response to the frontend
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        username: user.username,
+        avatar: user.avatar
+      },
+      token,
+    });
+
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // POST /api/users/check
 router.post("/check", async (req, res) => {
@@ -139,8 +199,7 @@ router.get('/:email', async (req, res) => {
     res.json({
       name: user.name,
       username: user.username,
-      id: user._id,
-      avatar : user.avatar,
+      id: user._id
     });
   } catch (err) {
     console.error('Fetch Error:', err);
@@ -220,4 +279,3 @@ router.post("/mark-tour-seen", async (req, res) => {
 
 
 export default router;
-
