@@ -4,25 +4,31 @@ import jwt from 'jsonwebtoken';
 import axios from 'axios';   // :white_check_mark: Added axios for webhook call
 const router = express.Router();
 // Register (Save user)
-const triggerWebhook = async (data, retries = 2) => {
+const triggerWebhook = async (data, retries = 2, attempt = 1) => {
   try {
-    await axios.post(process.env.PABBLY_CONNECT_WEBHOOK_URL, data);
-    console.log("✅ Webhook triggered successfully");
+    console.log(`📡 Sending webhook attempt ${attempt}...`);
+    const res = await axios.post(process.env.PABBLY_CONNECT_WEBHOOK_URL, data, {
+      headers: { "Content-Type": "application/json" }
+    });
+    console.log("✅ Webhook triggered successfully:", res.status);
   } catch (err) {
     console.error("❌ Webhook error:", err.message);
+    if (err.response) {
+      console.error("Status:", err.response.status);
+      console.error("Response data:", err.response.data);
+    }
 
     if (retries > 0) {
-      const delay = (3 - retries) * 60000; // 1st retry = 1 min, 2nd retry = 2 min
+      const delay = (attempt) * 60000; // 1st retry = 1 min, 2nd retry = 2 min
       console.log(`🔄 Retrying webhook in ${delay / 60000} minute(s)...`);
       setTimeout(() => {
-        triggerWebhook(data, retries - 1);
+        triggerWebhook(data, retries - 1, attempt + 1);
       }, delay);
     } else {
-      console.error("❌ Webhook failed after all retries");
+      console.error("🚨 Webhook failed after all retries");
     }
   }
 };
-
 // Register (Save user)
 router.post('/register', async (req, res) => {
   try {
