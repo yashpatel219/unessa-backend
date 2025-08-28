@@ -30,11 +30,10 @@ const triggerWebhook = async (data, retries = 2, attempt = 1) => {
   }
 };
 // Register (Save user)
-// Register (Save user)
 router.post('/register', async (req, res) => {
   try {
     console.log('Registration request body:', req.body);
-    const { name, email, number, avatar, username, role } = req.body;
+    const { name, email, number, avatar, username } = req.body;
 
     // Validate required fields
     if (!email) {
@@ -58,33 +57,27 @@ router.post('/register', async (req, res) => {
       finalUsername = `${baseUsername}${randomSuffix}`;
     }
 
-    // ✅ Default role is "Fundraiser_External"
-    const finalRole = role || "Fundraiser_External";
-
     // Create new user
     const newUser = new User({
       name: name.trim(),
       email: cleanEmail,
       number: number?.trim(),
       avatar,
-      username: finalUsername,
-      role: finalRole,
-        internshipStartDate: new Date(), 
+      username: finalUsername
     });
 
     await newUser.save();
-    console.log("✅ User registered successfully:", newUser.email, "Role:", newUser.role);
+    console.log("User registered successfully:", newUser.email);
 
     // ✅ Trigger Pabbly Webhook with retries
     triggerWebhook({
       name: newUser.name,
       email: newUser.email,
-      number: newUser.number,
-      role: newUser.role
+      number: newUser.number
     });
 
     const token = jwt.sign(
-      { id: newUser._id, email: newUser.email, role: newUser.role },
+      { id: newUser._id, email: newUser.email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -97,14 +90,13 @@ router.post('/register', async (req, res) => {
         name: newUser.name,
         email: newUser.email,
         username: newUser.username,
-        avatar: newUser.avatar,
-        role: newUser.role
+        avatar: newUser.avatar
       },
       token
     });
 
   } catch (err) {
-    console.error("❌ Registration error:", err);
+    console.error("Registration error:", err);
 
     // Handle duplicate key errors
     if (err.code === 11000) {
@@ -133,42 +125,18 @@ router.post('/register', async (req, res) => {
     });
   }
 });
-// Get user's internship start date
-// Get user's internship start date
-router.get("/start-date/:email", async (req, res) => {
-  try {
-    const { email } = req.params;
-    const user = await User.findOne({ email });
-
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    // ✅ Use internshipStartDate or fallback to generatedAt
-    const startDate = user.internshipStartDate || user.generatedAt || new Date();
-
-    res.json({ startDate });
-  } catch (err) {
-    console.error("Error fetching start date:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-
-
-// POST /api/users/check
 // POST /api/users/check
 router.post("/check", async (req, res) => {
   const { email } = req.body;
   try {
     const user = await User.findOne({ email });
     if (user) {
-      res.json({ exists: true, user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        username: user.username,
-        avatar: user.avatar,
-        role: user.role    // ✅ include role here
-      }});
+      const token = jwt.sign(
+        { id: user._id, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+      res.json({ exists: true, user, token });
     } else {
       res.json({ exists: false });
     }
@@ -177,26 +145,24 @@ router.post("/check", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-  // Get user details by email
 router.get('/:email', async (req, res) => {
   try {
     const user = await User.findOne({ email: req.params.email });
     if (!user) return res.status(404).json({ message: 'User not found' });
-
+    console.log('Name:', user.name);
+    console.log('Username:', user.username);
+    console.log('ID:', user._id.toString());
     res.json({
       name: user.name,
       username: user.username,
       id: user._id,
-      avatar: user.avatar,
-      role: user.role   // ✅ add role
+      avatar : user.avatar,
     });
   } catch (err) {
     console.error('Fetch Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 // Get user details by email
 router.get("/getUser/:email", async (req, res) => {
   try {
