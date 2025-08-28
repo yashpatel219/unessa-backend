@@ -10,14 +10,13 @@ const userSchema = new mongoose.Schema({
   quizPassed: { type: Boolean, default: false },
   offerLetterPath: { type: String, default: null },
   generatedAt: { type: Date, default: Date.now },
+  internshipStartDate: { type: Date, default: Date.now }, // ✅ Added field
   quizStatus: {
     type: String,
     enum: ["notAttempted", "passed", "failed"],
     default: "notAttempted",
   },
   hasSeenTour: { type: Boolean, default: false },
-
-  // ✅ Role field
   role: {
     type: String,
     enum: ["Fundraiser_External", "Volunteer_Internal"],
@@ -26,4 +25,3 @@ const userSchema = new mongoose.Schema({
 });
 
 export default mongoose.model("User", userSchema);
-
