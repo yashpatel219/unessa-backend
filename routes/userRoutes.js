@@ -68,7 +68,8 @@ router.post('/register', async (req, res) => {
       number: number?.trim(),
       avatar,
       username: finalUsername,
-      role: finalRole
+      role: finalRole,
+        internshipStartDate: new Date(), 
     });
 
     await newUser.save();
