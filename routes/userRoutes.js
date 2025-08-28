@@ -132,6 +132,24 @@ router.post('/register', async (req, res) => {
     });
   }
 });
+// Get user's internship start date
+router.get("/start-date/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const user = await User.findOne({ email });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Use internshipStartDate if available, otherwise fallback to generatedAt
+    const startDate = user.internshipStartDate || user.generatedAt;
+
+    res.json({ startDate });
+  } catch (err) {
+    console.error("Error fetching start date:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 
 // POST /api/users/check
 // POST /api/users/check
