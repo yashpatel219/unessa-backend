@@ -133,6 +133,7 @@ router.post('/register', async (req, res) => {
   }
 });
 // Get user's internship start date
+// Get user's internship start date
 router.get("/start-date/:email", async (req, res) => {
   try {
     const { email } = req.params;
@@ -140,8 +141,8 @@ router.get("/start-date/:email", async (req, res) => {
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Use internshipStartDate if available, otherwise fallback to generatedAt
-    const startDate = user.internshipStartDate || user.generatedAt;
+    // ✅ Use internshipStartDate or fallback to generatedAt
+    const startDate = user.internshipStartDate || user.generatedAt || new Date();
 
     res.json({ startDate });
   } catch (err) {
@@ -149,6 +150,7 @@ router.get("/start-date/:email", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 // POST /api/users/check
