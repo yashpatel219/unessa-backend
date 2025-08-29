@@ -1,9 +1,11 @@
 import express from 'express';
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
-import axios from 'axios';   // :white_check_mark: Added axios for webhook call
+import axios from 'axios';
+
 const router = express.Router();
-// Register (Save user)
+
+// Webhook trigger function (unchanged)
 const triggerWebhook = async (data, retries = 2, attempt = 1) => {
   try {
     console.log(`📡 Sending webhook attempt ${attempt}...`);
@@ -17,9 +19,8 @@ const triggerWebhook = async (data, retries = 2, attempt = 1) => {
       console.error("Status:", err.response.status);
       console.error("Response data:", err.response.data);
     }
-
     if (retries > 0) {
-      const delay = (attempt) * 60000; // 1st retry = 1 min, 2nd retry = 2 min
+      const delay = attempt * 60000; // retry after minutes
       console.log(`🔄 Retrying webhook in ${delay / 60000} minute(s)...`);
       setTimeout(() => {
         triggerWebhook(data, retries - 1, attempt + 1);
@@ -29,27 +30,20 @@ const triggerWebhook = async (data, retries = 2, attempt = 1) => {
     }
   }
 };
-// Register (Save user)
+
+// Register user
 router.post('/register', async (req, res) => {
   try {
-    console.log('Registration request body:', req.body);
     const { name, email, number, avatar, username } = req.body;
 
-    // Validate required fields
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required', field: 'email' });
-    }
-    if (!name) {
-      return res.status(400).json({ error: 'Name is required', field: 'name' });
-    }
+    if (!email) return res.status(400).json({ error: 'Email is required', field: 'email' });
+    if (!name) return res.status(400).json({ error: 'Name is required', field: 'name' });
 
-    // Clean and validate email format
     const cleanEmail = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       return res.status(400).json({ error: 'Invalid email format', field: 'email' });
     }
 
-    // Generate username if not provided
     let finalUsername = username;
     if (!finalUsername) {
       const baseUsername = name.toLowerCase().replace(/\s+/g, '');
@@ -57,19 +51,20 @@ router.post('/register', async (req, res) => {
       finalUsername = `${baseUsername}${randomSuffix}`;
     }
 
-    // Create new user
+    // Default role added
     const newUser = new User({
       name: name.trim(),
       email: cleanEmail,
       number: number?.trim(),
       avatar,
-      username: finalUsername
+      username: finalUsername,
+      role: "Fundraiser_External" // ✅ default role
     });
 
     await newUser.save();
     console.log("User registered successfully:", newUser.email);
 
-    // ✅ Trigger Pabbly Webhook with retries
+    // Trigger webhook
     triggerWebhook({
       name: newUser.name,
       email: newUser.email,
@@ -90,85 +85,55 @@ router.post('/register', async (req, res) => {
         name: newUser.name,
         email: newUser.email,
         username: newUser.username,
-        avatar: newUser.avatar
+        avatar: newUser.avatar,
+        role: newUser.role // ✅ send role
       },
       token
     });
 
   } catch (err) {
     console.error("Registration error:", err);
-
-    // Handle duplicate key errors
     if (err.code === 11000) {
       const field = err.message.includes('email') ? 'email' : 'username';
-      return res.status(400).json({
-        error: `${field} already exists`,
-        field
-      });
+      return res.status(400).json({ error: `${field} already exists`, field });
     }
-
-    // Handle validation errors
     if (err.name === 'ValidationError') {
       const errors = {};
-      Object.keys(err.errors).forEach(key => {
-        errors[key] = err.errors[key].message;
-      });
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errors
-      });
+      Object.keys(err.errors).forEach(key => { errors[key] = err.errors[key].message; });
+      return res.status(400).json({ error: 'Validation failed', details: errors });
     }
+    res.status(500).json({ error: 'Registration failed', details: err.message });
+  }
+});
 
-    res.status(500).json({
-      error: 'Registration failed',
-      details: err.message
-    });
-  }
-});
-// POST /api/users/check
-router.post("/check", async (req, res) => {
-  const { email } = req.body;
-  try {
-    const user = await User.findOne({ email });
-    if (user) {
-      const token = jwt.sign(
-        { id: user._id, email: user.email },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
-      );
-      res.json({ exists: true, user, token });
-    } else {
-      res.json({ exists: false });
-    }
-  } catch (err) {
-    console.error("Error checking user:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
+// Fetch user by email (include role)
 router.get('/:email', async (req, res) => {
   try {
     const user = await User.findOne({ email: req.params.email });
     if (!user) return res.status(404).json({ message: 'User not found' });
-    console.log('Name:', user.name);
-    console.log('Username:', user.username);
-    console.log('ID:', user._id.toString());
+
     res.json({
       name: user.name,
       username: user.username,
       id: user._id,
-      avatar : user.avatar,
+      avatar: user.avatar,
+      role: user.role || "Fundraiser_External" // ✅ include role
     });
   } catch (err) {
     console.error('Fetch Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
-// Get user details by email
+
+// Get full user details by email (include role)
 router.get("/getUser/:email", async (req, res) => {
   try {
     const user = await User.findOne({ email: req.params.email });
     if (user) {
-      res.json(user);
+      res.json({
+        ...user.toObject(),
+        role: user.role || "Fundraiser_External" // ✅ include role
+      });
     } else {
       res.status(404).json({ message: "User not found" });
     }
