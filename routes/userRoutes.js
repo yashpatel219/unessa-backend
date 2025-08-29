@@ -5,7 +5,7 @@ import axios from 'axios';
 
 const router = express.Router();
 
-// Webhook trigger function (unchanged)
+// Webhook trigger function
 const triggerWebhook = async (data, retries = 2, attempt = 1) => {
   try {
     console.log(`📡 Sending webhook attempt ${attempt}...`);
@@ -20,7 +20,7 @@ const triggerWebhook = async (data, retries = 2, attempt = 1) => {
       console.error("Response data:", err.response.data);
     }
     if (retries > 0) {
-      const delay = attempt * 60000; // retry after minutes
+      const delay = attempt * 60000;
       console.log(`🔄 Retrying webhook in ${delay / 60000} minute(s)...`);
       setTimeout(() => {
         triggerWebhook(data, retries - 1, attempt + 1);
@@ -30,6 +30,24 @@ const triggerWebhook = async (data, retries = 2, attempt = 1) => {
     }
   }
 };
+
+// Check if user exists - UPDATED ENDPOINT
+router.post('/check-user', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    res.json({ exists: !!user });
+    
+  } catch (err) {
+    console.error('Check user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Register user
 router.post('/register', async (req, res) => {
@@ -51,20 +69,18 @@ router.post('/register', async (req, res) => {
       finalUsername = `${baseUsername}${randomSuffix}`;
     }
 
-    // Default role added
     const newUser = new User({
       name: name.trim(),
       email: cleanEmail,
       number: number?.trim(),
       avatar,
       username: finalUsername,
-      role: "Fundraiser_External" // ✅ default role
+      role: "Fundraiser_External"
     });
 
     await newUser.save();
     console.log("User registered successfully:", newUser.email);
 
-    // Trigger webhook
     triggerWebhook({
       name: newUser.name,
       email: newUser.email,
@@ -86,7 +102,7 @@ router.post('/register', async (req, res) => {
         email: newUser.email,
         username: newUser.username,
         avatar: newUser.avatar,
-        role: newUser.role // ✅ send role
+        role: newUser.role
       },
       token
     });
@@ -106,10 +122,10 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Fetch user by email (include role)
-router.get('/:email', async (req, res) => {
+// Get user by email - UPDATED ENDPOINT
+router.get('/get-user/:email', async (req, res) => {
   try {
-    const user = await User.findOne({ email: req.params.email });
+    const user = await User.findOne({ email: req.params.email.toLowerCase() });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     res.json({
@@ -117,7 +133,7 @@ router.get('/:email', async (req, res) => {
       username: user.username,
       id: user._id,
       avatar: user.avatar,
-      role: user.role || "Fundraiser_External" // ✅ include role
+      role: user.role || "Fundraiser_External"
     });
   } catch (err) {
     console.error('Fetch Error:', err);
@@ -125,22 +141,6 @@ router.get('/:email', async (req, res) => {
   }
 });
 
-// Get full user details by email (include role)
-router.get("/getUser/:email", async (req, res) => {
-  try {
-    const user = await User.findOne({ email: req.params.email });
-    if (user) {
-      res.json({
-        ...user.toObject(),
-        role: user.role || "Fundraiser_External" // ✅ include role
-      });
-    } else {
-      res.status(404).json({ message: "User not found" });
-    }
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
-});
 // Update Quiz Status
 router.post("/quiz-status", async (req, res) => {
   try {
@@ -149,7 +149,7 @@ router.post("/quiz-status", async (req, res) => {
       return res.status(400).json({ message: "Invalid status" });
     }
     const user = await User.findOneAndUpdate(
-      { email },
+      { email: email.toLowerCase() },
       { quizStatus: status },
       { new: true }
     );
@@ -160,10 +160,11 @@ router.post("/quiz-status", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 // Get Quiz Status
 router.get("/quiz-status/:email", async (req, res) => {
   try {
-    const user = await User.findOne({ email: req.params.email });
+    const user = await User.findOne({ email: req.params.email.toLowerCase() });
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json({ quizStatus: user.quizStatus });
   } catch (err) {
@@ -171,11 +172,12 @@ router.get("/quiz-status/:email", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 router.post("/mark-tour-seen", async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOneAndUpdate(
-      { email },
+      { email: email.toLowerCase() },
       { hasSeenTour: true },
       { new: true }
     );
@@ -185,4 +187,5 @@ router.post("/mark-tour-seen", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 export default router;
