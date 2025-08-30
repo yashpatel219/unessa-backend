@@ -188,4 +188,19 @@ router.post("/mark-tour-seen", async (req, res) => {
   }
 });
 
+// Get generatedAt date by email
+router.get('/generated-date/:email', async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.params.email.toLowerCase() });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json({
+      generatedAt: user.generatedAt
+    });
+  } catch (err) {
+    console.error('Fetch generatedAt error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 export default router;
