@@ -1,7 +1,7 @@
-import express from 'express';
-import User from '../models/User.js';
-import jwt from 'jsonwebtoken';
-import axios from 'axios';
+import express from "express";
+import User from "../models/User.js";
+import jwt from "jsonwebtoken";
+import axios from "axios";
 
 const router = express.Router();
 
@@ -31,40 +31,36 @@ const triggerWebhook = async (data, retries = 2, attempt = 1) => {
   }
 };
 
-// Check if user exists - UPDATED ENDPOINT
-router.post('/check-user', async (req, res) => {
+// ✅ Check if user exists
+router.post("/check-user", async (req, res) => {
   try {
     const { email } = req.body;
-    
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required' });
-    }
+    if (!email) return res.status(400).json({ error: "Email is required" });
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     res.json({ exists: !!user });
-    
   } catch (err) {
-    console.error('Check user error:', err);
-    res.status(500).json({ error: 'Server error' });
+    console.error("Check user error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-// Register user
-router.post('/register', async (req, res) => {
+// ✅ Register user
+router.post("/register", async (req, res) => {
   try {
     const { name, email, number, avatar, username } = req.body;
 
-    if (!email) return res.status(400).json({ error: 'Email is required', field: 'email' });
-    if (!name) return res.status(400).json({ error: 'Name is required', field: 'name' });
+    if (!email) return res.status(400).json({ error: "Email is required", field: "email" });
+    if (!name) return res.status(400).json({ error: "Name is required", field: "name" });
 
     const cleanEmail = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      return res.status(400).json({ error: 'Invalid email format', field: 'email' });
+      return res.status(400).json({ error: "Invalid email format", field: "email" });
     }
 
     let finalUsername = username;
     if (!finalUsername) {
-      const baseUsername = name.toLowerCase().replace(/\s+/g, '');
+      const baseUsername = name.toLowerCase().replace(/\s+/g, "");
       const randomSuffix = Math.floor(1000 + Math.random() * 9000);
       finalUsername = `${baseUsername}${randomSuffix}`;
     }
@@ -75,7 +71,11 @@ router.post('/register', async (req, res) => {
       number: number?.trim(),
       avatar,
       username: finalUsername,
-      role: "Fundraiser_External"
+      role: "Fundraiser_External",
+
+      // ✅ Ensure dates are set
+      generatedAt: new Date(),
+      internshipStartDate: new Date()
     });
 
     await newUser.save();
@@ -90,12 +90,12 @@ router.post('/register', async (req, res) => {
     const token = jwt.sign(
       { id: newUser._id, email: newUser.email },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: "7d" }
     );
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully',
+      message: "User registered successfully",
       user: {
         id: newUser._id,
         name: newUser.name,
@@ -106,27 +106,26 @@ router.post('/register', async (req, res) => {
       },
       token
     });
-
   } catch (err) {
     console.error("Registration error:", err);
     if (err.code === 11000) {
-      const field = err.message.includes('email') ? 'email' : 'username';
+      const field = err.message.includes("email") ? "email" : "username";
       return res.status(400).json({ error: `${field} already exists`, field });
     }
-    if (err.name === 'ValidationError') {
+    if (err.name === "ValidationError") {
       const errors = {};
       Object.keys(err.errors).forEach(key => { errors[key] = err.errors[key].message; });
-      return res.status(400).json({ error: 'Validation failed', details: errors });
+      return res.status(400).json({ error: "Validation failed", details: errors });
     }
-    res.status(500).json({ error: 'Registration failed', details: err.message });
+    res.status(500).json({ error: "Registration failed", details: err.message });
   }
 });
 
-// Get user by email - UPDATED ENDPOINT
-router.get('/get-user/:email', async (req, res) => {
+// ✅ Get user by email
+router.get("/get-user/:email", async (req, res) => {
   try {
     const user = await User.findOne({ email: req.params.email.toLowerCase() });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
     res.json({
       name: user.name,
@@ -136,12 +135,38 @@ router.get('/get-user/:email', async (req, res) => {
       role: user.role || "Fundraiser_External"
     });
   } catch (err) {
-    console.error('Fetch Error:', err);
-    res.status(500).json({ error: 'Server error' });
+    console.error("Fetch Error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-// Update Quiz Status
+// ✅ Get internship start date
+router.get("/start-date/:email", async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.params.email.toLowerCase() });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ startDate: user.internshipStartDate });
+  } catch (err) {
+    console.error("Fetch start date error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ✅ Get generatedAt date
+router.get("/generated-date/:email", async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.params.email.toLowerCase() });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.json({ generatedAt: user.generatedAt });
+  } catch (err) {
+    console.error("Fetch generatedAt error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ✅ Update Quiz Status
 router.post("/quiz-status", async (req, res) => {
   try {
     const { email, status } = req.body;
@@ -161,7 +186,7 @@ router.post("/quiz-status", async (req, res) => {
   }
 });
 
-// Get Quiz Status
+// ✅ Get Quiz Status
 router.get("/quiz-status/:email", async (req, res) => {
   try {
     const user = await User.findOne({ email: req.params.email.toLowerCase() });
@@ -173,6 +198,7 @@ router.get("/quiz-status/:email", async (req, res) => {
   }
 });
 
+// ✅ Mark Tour Seen
 router.post("/mark-tour-seen", async (req, res) => {
   try {
     const { email } = req.body;
@@ -188,19 +214,5 @@ router.post("/mark-tour-seen", async (req, res) => {
   }
 });
 
-// Get generatedAt date by email
-router.get('/generated-date/:email', async (req, res) => {
-  try {
-    const user = await User.findOne({ email: req.params.email.toLowerCase() });
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    res.json({
-      generatedAt: user.generatedAt
-    });
-  } catch (err) {
-    console.error('Fetch generatedAt error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
 export default router;
+
