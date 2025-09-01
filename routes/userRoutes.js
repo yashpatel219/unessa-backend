@@ -132,7 +132,9 @@ router.get("/get-user/:email", async (req, res) => {
       username: user.username,
       id: user._id,
       avatar: user.avatar,
-      role: user.role || "Fundraiser_External"
+      role: user.role || "Fundraiser_External",
+        generatedAt: user.generatedAt,             // ✅ Added
+      internshipStartDate: user.internshipStartDate // ✅ Added
     });
   } catch (err) {
     console.error("Fetch Error:", err);
